@@ -1,0 +1,5 @@
+clientConfig.CLIENT_COMPONENTS.push("GeoNoteControl:1:tools");
+clientConfig.GEONOTE_COLOR = '#FF00FF';
+clientConfig.GEONOTE_SYMBOL_MAP = {
+    
+};

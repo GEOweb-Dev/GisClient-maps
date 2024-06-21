@@ -3,42 +3,303 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
+ OpenLayers.Control.GeoNoteModifyFeature = OpenLayers.Class(OpenLayers.Control.ModifyFeature, {
+     rotateHandleStyle: null,
+
+     initialize: function(layer, options) {
+         OpenLayers.Control.ModifyFeature.prototype.initialize.apply(this, arguments);
+         var init_style = OpenLayers.Util.extend({}, OpenLayers.Feature.Vector.style.select);
+         this.rotateHandleStyle = OpenLayers.Util.extend(init_style, {
+            fillColor: '#ee9900',
+            strokeColor: '#ee9900',
+            graphicName: 'circle',
+         });
+     },
+
+     resetVertices: function() {
+         if(this.feature && this.feature.geometry.CLASS_NAME == "OpenLayers.Geometry.LineString") {
+             if((this.mode && (this.mode == OpenLayers.Control.ModifyFeature.RESHAPE || this.mode == OpenLayers.Control.ModifyFeature.RESIZE || this.mode == OpenLayers.Control.ModifyFeature.DRAG))) {
+                 if (this.feature.attributes.hasOwnProperty('quote_id')) {
+                     alert ('Operazione non valida su oggetti di tipo quota');
+                     this.unselectFeature(this.feature);
+                     this.deactivate();
+                     this.map.currentControl=this.map.defaultControl;
+                     return;
+                 }
+            }
+         }
+         OpenLayers.Control.ModifyFeature.prototype.resetVertices.apply(this, arguments);
+         if(this.feature && this.feature.geometry.CLASS_NAME == "OpenLayers.Geometry.Point") {
+             if((this.mode & (OpenLayers.Control.ModifyFeature.ROTATE))) {
+                 if (this.feature.attributes.attach || this.feature.attributes.label) {
+                     this.collectRadiusHandle();
+                 }
+            }
+         }
+     },
+
+     unselectFeature: function(feature) {
+         OpenLayers.Control.ModifyFeature.prototype.unselectFeature.apply(this, arguments);
+         if (feature.attributes.hasOwnProperty('quote_id')) {
+            var quoteArr = new Array();
+            var ptArr = feature.geometry.getVertices();
+            var pointAngle = feature.attributes.angle + 270;
+            if (pointAngle > 360) pointAngle -= 360;
+            quoteArr.push(new OpenLayers.Feature.Vector(ptArr[0],{label:'',quote_id:feature.attributes.quote_id,node:0,angle:pointAngle,color:feature.attributes.color,symbol:'triangle',radius:4,attach:''}));
+            pointAngle += 180;
+            if (pointAngle > 360) pointAngle -= 360;
+            quoteArr.push(new OpenLayers.Feature.Vector(ptArr[1],{label:'',quote_id:feature.attributes.quote_id,node:1,angle:pointAngle,color:feature.attributes.color,symbol:'triangle',radius:4,attach:''}));
+            this.layer.addFeatures(quoteArr);
+         }
+
+     },
+
+     collectRadiusHandle: function() {
+         var geometry = this.feature.geometry;
+         var bounds = geometry.getBounds();
+         var center = bounds.getCenterLonLat();
+         var originGeometry = new OpenLayers.Geometry.Point(
+             center.lon, center.lat
+         );
+         if (this.feature.geometry.CLASS_NAME == "OpenLayers.Geometry.Point") {
+             var center_px = this.map.getPixelFromLonLat(center);
+
+             var pixel_dis_x = 15;
+             var pixel_dis_y = 15; // you can change this two values to get best radius geometry position.
+
+             var radius_px = center_px.add(pixel_dis_x, pixel_dis_y);
+             var radius_lonlat = this.map.getLonLatFromPixel(radius_px);
+
+             var radiusGeometry = new OpenLayers.Geometry.Point(
+                 radius_lonlat.lon, radius_lonlat.lat
+             );
+         }
+         else {
+              var radiusGeometry = new OpenLayers.Geometry.Point(
+             bounds.right, bounds.bottom
+         );
+         }
+
+         var radius = new OpenLayers.Feature.Vector(radiusGeometry, null, this.rotateHandleStyle);
+
+         //OpenLayers.Util.extend(radius.attributes, this.feature.attributes);
+
+         var resize = (this.mode & OpenLayers.Control.ModifyFeature.RESIZE);
+         var reshape = (this.mode & OpenLayers.Control.ModifyFeature.RESHAPE);
+         var rotate = (this.mode & OpenLayers.Control.ModifyFeature.ROTATE);
+         var self = this;
+
+         radiusGeometry.move = function(x, y) {
+             OpenLayers.Geometry.Point.prototype.move.call(this, x, y);
+             var dx1 = this.x - originGeometry.x;
+             var dy1 = this.y - originGeometry.y;
+             var dx0 = dx1 - x;
+             var dy0 = dy1 - y;
+             if(rotate) {
+                 var a0 = Math.atan2(dy0, dx0);
+                 var a1 = Math.atan2(dy1, dx1);
+                 var angle = a1 - a0;
+                 angle *= 180 / Math.PI;
+                 if (self.feature.geometry.CLASS_NAME == "OpenLayers.Geometry.Point") {
+                     var old_angle = self.feature.attributes.angle;
+                     var new_angle = old_angle - angle;
+                     self.feature.attributes.angle = new_angle;
+                     if (self.feature.attributes.labelxoff || self.feature.attributes.labelyoff) {
+                         var res = self.map.getResolution();
+                         var xdist = self.feature.attributes.labelxoff*res;
+                         var ydist = self.feature.attributes.labelyoff*res;
+                         var offPoint = new OpenLayers.Geometry.Point(originGeometry.x+xdist,originGeometry.y+ydist);
+                         offPoint.rotate(angle, originGeometry);
+                         self.feature.attributes.labelxoff = (offPoint.x - originGeometry.x)/res;
+                         self.feature.attributes.labelyoff = (offPoint.y - originGeometry.y)/res;
+                     }
+                     // redraw the feature
+                     self.layer.drawFeature(self.feature);
+                 }
+                 else {
+                     geometry.rotate(angle, originGeometry);
+                     self.pageRotation+= angle;
+                     if (self.pageRotation > 360) self.pageRotation-=360;
+                     // **** Quota
+                     if (self.feature.attributes.centroid && self.feature.geometry.CLASS_NAME == "OpenLayers.Geometry.LineString") {
+                         var old_angle = self.feature.attributes.angle;
+                         var new_angle = old_angle - angle;
+                         self.feature.attributes.angle = new_angle;
+                         var ptArr = geometry.getVertices();
+                         var dx = ptArr[1].x-ptArr[0].x;
+                         var dy = ptArr[1].y-ptArr[0].y;
+                         var angle1 = Math.atan2(dy,dx);
+                         var dist = 12 * self.map.getResolution();
+                         self.feature.attributes.centroid = new OpenLayers.Geometry.Point(center.lon - Math.sin(angle1) * dist,Math.cos(angle1) * dist + center.lat);
+
+                     }
+                 }
+             }
+             if(resize) {
+                 var scale, ratio;
+                 // 'resize' together with 'reshape' implies that the aspect
+                 // ratio of the geometry will not be preserved whilst resizing
+                 if (reshape) {
+                     scale = dy1 / dy0;
+                     ratio = (dx1 / dx0) / scale;
+                 } else {
+                     var l0 = Math.sqrt((dx0 * dx0) + (dy0 * dy0));
+                     var l1 = Math.sqrt((dx1 * dx1) + (dy1 * dy1));
+                     scale = l1 / l0;
+                 }
+                 geometry.resize(scale, originGeometry, ratio);
+                 if (self.feature.attributes.label && self.feature.attributes.unit && self.feature.geometry.CLASS_NAME == "OpenLayers.Geometry.LineString") {
+                     var newMeasure = geometry.getGeodesicLength(self.map.projection);
+                     if (self.feature.attributes.unit == 'km') {
+                         newMeasure = newMeasure/1000;
+                     }
+                     self.feature.attributes.label = sprintf('%01.3f', newMeasure) + ' ' + self.feature.attributes.unit;
+                 }
+             }
+         };
+         radius._sketch = true;
+         this.radiusHandle = radius;
+         this.layer.addFeatures([this.radiusHandle], {silent: true});
+     },
+
+     collectDragHandle: function() {
+        var geometry = this.feature.geometry;
+        var center = geometry.getBounds().getCenterLonLat();
+        var originGeometry = new OpenLayers.Geometry.Point(
+            center.lon, center.lat
+        );
+        var origin = new OpenLayers.Feature.Vector(originGeometry);
+        var self = this;
+        originGeometry.move = function(x, y) {
+            OpenLayers.Geometry.Point.prototype.move.call(this, x, y);
+            geometry.move(x, y);
+            if (self.feature.attributes.centroid && self.feature.geometry.CLASS_NAME == "OpenLayers.Geometry.LineString") {
+                var ptArr = geometry.getVertices();
+                var newCenter = geometry.getBounds().getCenterLonLat();
+                var dx = ptArr[1].x-ptArr[0].x;
+                var dy = ptArr[1].y-ptArr[0].y;
+                var angle1 = Math.atan2(dy,dx);
+                var dist = 12 * self.map.getResolution();
+                self.feature.attributes.centroid = new OpenLayers.Geometry.Point(newCenter.lon - Math.sin(angle1) * dist,Math.cos(angle1) * dist + newCenter.lat);
+            }
+        };
+        origin._sketch = true;
+        this.dragHandle = origin;
+        this.dragHandle.renderIntent = this.vertexRenderIntent;
+        this.layer.addFeatures([this.dragHandle], {silent: true});
+    },
+
+     CLASS_NAME: "OpenLayers.Control.GeoNoteModifyFeature"
+ });
+
+
+
+
 OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,{
     // **** baseUrl - Gisclient service URL
     baseUrl : '/gisclient3/',
-    panelsUrl: '',
     redlineLayer : null,
+    symbolFontFiles: [],
+    snapLayer : null,
+    snapMapQuery: null,
+    snapCtrl: null,
+    snapMaxScale: 3000,
     div: null,
+    mainPanel: null,
+    panelList: {},
+    controlList: {},
+    featureAttr: {},
     redlineColor: '#FF00FF',
-    divdrawbtns: null,
-    divopsgbtns: null,
-    divopsnbtns: null,
+    redlineColorM: '#FF00FF',
 
     noteID: null,
-    noteTitle: 'Nota senza nome',
+    noteList: {},
+    noteTitle: 'Nuova nota',
+    noteDefaultStatus: "Nuova",
+    noteDefaultTitle: 'Nuova nota',
     savedState: false,
     loading: false,
 
     initialize: function(options) {
         OpenLayers.Control.Panel.prototype.initialize.apply(this, [options]);
 
+        // **** Set default panels
+        OpenLayers.Util.extend(this.panelList, {
+            geonote_color: {class: ['geonote_panel_cls_draw','geonote_panel_cls_edit','geonote_colorpicker_container'],
+            title: '<span class="geonote_colorpicker_header_badge glyphicon-white glyphicon-stop" style="margin-right: 10px; color: '+this.redlineColor+';"></span>Colore',
+            foldable: true,
+            content: '<div id="geonote_colorpicker" class="olToolbarControl cp-default"></div>\
+                      <div><span class="geonote_colorpicker_display">&nbsp</span></div>'
+            },
+            create_point: {class: 'geonote_panel_cls_draw', title: 'Oggetti Puntuali', foldable: true, content: null},
+            create_line: {class: 'geonote_panel_cls_draw', title: 'Oggetti Lineari', foldable: true, content: null},
+            create_polygon: {class: 'geonote_panel_cls_draw', title: 'Oggetti Poligonali', foldable: true, content: null},
+            create_quote: {class: 'geonote_panel_cls_draw', title: 'Quote', foldable: true, content: null},
+            geom_edit: {class: 'geonote_panel_cls_edit', title: 'Modifica Oggetti', foldable: true, content: null},
+            note_manage: {class: 'geonote_panel_cls_manage', title: null, foldable: false, content: null},
+            note_snap: {class: 'geonote_panel_cls_manage', title: 'Snapping', foldable: true, content: null},
+        });
+
+        // **** Create toolbar DOM Objects
+        this.mainPanel = document.createElement('div');
+        this.mainPanel.setAttribute('id', 'geonote_panel_main');
+        var divNoteTitle = document.createElement('div');
+        divNoteTitle.setAttribute('id', 'geonote_panel_note_title');
+        this.mainPanel.appendChild(divNoteTitle);
+        var txtNoteHeader = document.createElement('span');
+        txtNoteHeader.setAttribute('id', 'geonote_note_header');
+        divNoteTitle.appendChild(txtNoteHeader);
+        var txtNoteTitle = document.createElement('span');
+        txtNoteTitle.setAttribute('id', 'geonote_note_title');
+        divNoteTitle.appendChild(txtNoteTitle);
+        var divNoteMapset = document.createElement('div');
+        divNoteMapset.setAttribute('id', 'geonote_panel_note_mapset');
+        this.mainPanel.appendChild(divNoteMapset);
+        var txtNoteHeaderM = document.createElement('span');
+        txtNoteHeaderM.setAttribute('id', 'geonote_note_header_mapset');
+        divNoteMapset.appendChild(txtNoteHeaderM);
+        var txtNoteTitleM = document.createElement('span');
+        txtNoteTitleM.setAttribute('id', 'geonote_note_mapset');
+        divNoteMapset.appendChild(txtNoteTitleM);
+        var divNoteStatus = document.createElement('div');
+        divNoteStatus.setAttribute('id', 'geonote_panel_note_status');
+        this.mainPanel.appendChild(divNoteStatus);
+        var txtNoteHeaderS = document.createElement('span');
+        txtNoteHeaderS.setAttribute('id', 'geonote_note_header_status');
+        divNoteStatus.appendChild(txtNoteHeaderS);
+        var txtNoteTitleS = document.createElement('span');
+        txtNoteTitleS.setAttribute('id', 'geonote_note_status');
+        divNoteStatus.appendChild(txtNoteTitleS);
+
+        var panelIDs = Object.keys(this.panelList);
+        for (var k = 0; k < panelIDs.length; k++) {
+            var panelID = panelIDs[k];
+            this.createPanelElement(panelID, this.panelList[panelID].class, this.panelList[panelID].title, this.panelList[panelID].foldable, this.panelList[panelID].content);
+        };
+
         this.serviceURL = this.baseUrl + 'services/plugins/geonote/redline.php';
 
         var redlineStyleDefault = new OpenLayers.Style({
-            pointRadius: 5,
+            pointRadius: '${radius}',
             fillOpacity: 0.7,
-            fontSize: "12px",
+            fontSize: "${fontsize}",
             fontFamily: "Courier New, monospace",
             fontWeight: "bold",
+            fontColor: '${color}',
             labelAlign: "cm",
-            labelXOffset: 0,
-            labelYOffset: 10,
+            labelXOffset: '${labelxoff}',
+            labelYOffset: '${labelyoff}',
             fillColor: '${color}',
             strokeColor: '${color}',
+            strokeWidth: '${strokewidth}',
+            strokeDashstyle: "${dashstyle}",
             label: '${label}',
             externalGraphic: '${attach}',
-            graphicWidth: 50,
-            graphicHeight: 50
+            graphicName: '${symbol}',
+            graphicWidth: '${attachsize}',
+            graphicHeight: '${attachsize}',
+            rotation: '${angle}',
+            angle: '${angle}'
             }
         );
 
@@ -54,7 +315,8 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
             fillColor: '#ee9900',
             strokeColor: '#ee9900',
             label: '',
-            externalGraphic: ''
+            externalGraphic: '',
+            graphicName: 'circle'
             }
         );
 
@@ -69,7 +331,6 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
             labelYOffset: 10,
             fillColor: '#ee9900',
             strokeColor: '#ee9900',
-            label: ''
             }
         );
 
@@ -115,252 +376,1015 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
             ]
         });
 
+        this.snapLayer = new OpenLayers.Layer.Vector('GeoNoteSnap', {
+            displayInLayerSwitcher:false
+        });
+        this.snapCtrl = new OpenLayers.Control.Snapping({
+            layer: this.redlineLayer,
+            targets: [this.snapLayer,this.redlineLayer],
+            greedy: true
+        });
+
+        this.snapMapQuery = new OpenLayers.Control.QueryMap(
+            OpenLayers.Handler.Polygon,
+            {
+                gc_id: 'control-geonote-snap-query',
+                baseUrl: GisClientMap.baseUrl,
+                maxFeatures:10000,
+                maxVectorFeatures: 10000,
+                wfsCache: new Array(),
+                deactivateAfterSelect: true,
+                vectorFeaturesOverLimit: new Array(),
+                resultLayer:this.snapLayer,
+                eventListeners: {
+                    'activate': function(){
+                    },
+                    'endQueryMap': function(event) {
+                        var loadingControl = GisClientMap.map.getControlsByClass('OpenLayers.Control.LoadingPanel')[0];
+                        loadingControl.minimizeControl();
+                    }
+                }
+            }
+        );
+
         var controls = [
-            new OpenLayers.Control.DrawFeature(
-                this.redlineLayer,
-                OpenLayers.Handler.Point,
-                {
-                    containerDiv: this.divdrawbtns,
-                    handlerOptions:{ options : { label:''}},
-                    iconclass:"glyphicon-white glyphicon-tag",
-                    text:"Etichetta",
-                    title:"Inserisci etichetta",
-                    eventListeners: {
-                        'activate': function(){
-                            this.map.currentControl.deactivate();
-                            this.map.currentControl=this;
-                        }
-                    }
-                }
-            ),
-            new OpenLayers.Control.DrawFeature(
-                this.redlineLayer,
-                OpenLayers.Handler.Path,
-                {
-                    div: this.divdrawbtns,
-                    handlerOptions:{freehand:false},
-                    iconclass:"glyphicon-white glyphicon-pencil",
-                    text:"Linea",
-                    title:"Inserisci linea",
-                    eventListeners: {'activate': function(){
-                            this.map.currentControl.deactivate();
-                            this.map.currentControl=this;
-                        }
-                    }
-                }
-            ),
-            new OpenLayers.Control.DrawFeature(
-                this.redlineLayer,
-                OpenLayers.Handler.Polygon,
-                {
-                    div: this.divdrawbtns,
-                    iconclass:"glyphicon-white glyphicon-unchecked",
-                    text:"Poligono",
-                    title:"Inserisci poligono",
-                    eventListeners: {'activate': function(){
-                            this.map.currentControl.deactivate();
-                            this.map.currentControl=this;
-                        }
-                    }
-                }
-            ),
-            new OpenLayers.Control.DrawFeature(
-                this.redlineLayer,
-                OpenLayers.Handler.RegularPolygon,
-                {
-                    handlerOptions: {sides: 50},
-                    div: this.divdrawbtns,
-                    iconclass:"glyphicon-white glyphicon-record",
-                    text:"Cerchio",
-                    title:"Inserisci cerchio",
-                    eventListeners: {'activate': function(){
-                            this.map.currentControl.deactivate();
-                            this.map.currentControl=this;
-                        }
-                    }
-                }
-            ),
             new OpenLayers.Control(
                 {
+                    ctrl: this,
                     type: OpenLayers.Control.TYPE_BUTTON ,
-                    displayClass: "olToolbarSeparator",
-                    iconclass:"glyphicon-white glyphicon-option-vertical",
-                    trigger: function() {}
+                    iconclass:"glyphicon-white glyphicon-pencil",
+                    panelclass:"geonote_panel_cls_draw",
+                    text:"Disegna",
+                    title:"Disegna oggetto",
+                    trigger: this.managePanels
                 }
             ),
             new OpenLayers.Control(
                 {
                     ctrl: this,
-                    type: OpenLayers.Control.TYPE_BUTTON,
-                    displayClass: "jscolor",
-                    iconclass:"glyphicon-white glyphicon-tint",
-                    text:"Colore",
-                    title:"Scegli colore",
-                    trigger: this.colorPicker
+                    type: OpenLayers.Control.TYPE_BUTTON ,
+                    iconclass:"glyphicon-white glyphicon-edit",
+                    panelclass:"geonote_panel_cls_edit",
+                    text:"Modifica",
+                    title:"Modifica Oggetto",
+                    trigger: this.managePanels
                 }
             ),
-            new OpenLayers.Control.ModifyFeature(
-                this.redlineLayer,
+            new OpenLayers.Control(
                 {
-                    mode: OpenLayers.Control.ModifyFeature.ROTATE | OpenLayers.Control.ModifyFeature.RESIZE | OpenLayers.Control.ModifyFeature.DRAG,
-                    vertexRenderIntent: 'temporary',
-                    iconclass:"glyphicon-white glyphicon-pencil",
-                    text:"Modifica",
-                    title:"Modifica geometrie - ruota, sposta, scala",
+                    ctrl: this,
+                    type: OpenLayers.Control.TYPE_BUTTON ,
+                    iconclass:"glyphicon-white glyphicon-wrench",
+                    panelclass:"geonote_panel_cls_manage",
+                    text:"Strumenti",
+                    title:"Strumenti Nota",
+                    trigger: this.managePanels
+                }
+            )
+        ];
+
+        this.addControls(controls);
+
+        OpenLayers.Util.extend(this.controlList, {
+            create_point: [
+                new OpenLayers.Control.DrawFeature(
+                    this.redlineLayer,
+                    OpenLayers.Handler.Point,
+                    {
+                        ctrl: this,
+                        iconclass:"glyphicon-white glyphicon-asterisk",
+                        text:"Punto",
+                        title:"Inserisci punto",
+                        eventListeners: {
+                            'activate': function(){
+                                this.map.currentControl.deactivate();
+                                this.map.currentControl=this;
+                                var toolsDiv = document.getElementById('geonote_panel_elem_options_create_point');
+                                var htmlText = '<div><span class="geonote_options_header">Dimensione punto</span><span class="geonote_options_content">';
+                                htmlText += '<select class="form-control" id="geonote_radius_text" data-geonote-attr="radius">'
+                                for (var i=1; i<=20;i++) {
+                                    htmlText += '<option value="'+i+'">'+i+'</option>';
+                                }
+                                htmlText += '</select>';
+                                htmlText +='</span></div>';
+                                toolsDiv.innerHTML = htmlText;
+                            },
+                            'deactivate': function() {
+                                var toolsDiv = document.getElementById('geonote_panel_elem_options_create_point');
+                                toolsDiv.innerHTML = '';
+                            }
+                        }
+                    }
+                ),
+                new OpenLayers.Control.DrawFeature(
+                    this.redlineLayer,
+                    OpenLayers.Handler.Point,
+                    {
+                        ctrl: this,
+                        iconclass:"glyphicon-white glyphicon-tag",
+                        text:"Etichetta",
+                        title:"Inserisci etichetta",
+                        eventListeners: {
+                            'activate': function(){
+                                this.map.currentControl.deactivate();
+                                this.map.currentControl=this;
+                                var toolsDiv = document.getElementById('geonote_panel_elem_options_create_point');
+                                toolsDiv.innerHTML = '<div><span class="geonote_options_header">Disegna etichetta</span><span class="geonote_options_content">\
+                                <a id="geonote_label_orientation_disable" class="olButton olControlItemInactive">Semplice</a>\
+                                <a id="geonote_label_orientation_enable" class="olButton olControlItemActive">Orientata</a></span>';
+                                toolsDiv.innerHTML += '<div><span class="geonote_options_header">Testo Etichetta</span>\
+                                <span class="geonote_options_content"><textarea name="text" class="form-control" id="geonote_label_text" data-geonote-attr="label"></textarea></span></div>';
+                                var htmlText = '<div><span class="geonote_options_header">Dimensione testo</span><span class="geonote_options_content">';
+                                htmlText += '<select class="form-control" id="geonote_fontsize_text" data-geonote-attr="fontsize">';
+                                for (var i=6; i<=30;i+=2) {
+                                    if (i==12) {
+                                        htmlText += '<option selected value="'+i+'px">'+i+'</option>';
+                                    }
+                                    else {
+                                        htmlText += '<option value="'+i+'px">'+i+'</option>';
+                                    }
+                                }
+                                htmlText += '</select>';
+                                htmlText +='</span></div>';
+                                htmlText += '<input type="hidden" value="1" class="form-control"  id="geonote_orientation_text" data-geonote-attr="orientation">';
+                                htmlText += '<div><span class="geonote_options_header">Dimensione punto</span><span class="geonote_options_content">';
+                                htmlText += '<select class="form-control" id="geonote_radius_text" data-geonote-attr="radius">';
+                                htmlText += '<option value="0">Nascosto</option>';
+                                for (var i=1; i<=20;i++) {
+                                    htmlText += '<option value="'+i+'">'+i+'</option>';
+                                }
+                                htmlText += '</select>';
+                                htmlText +='</span></div>';
+                                toolsDiv.innerHTML += htmlText;
+
+                                var orEnBtn = document.getElementById('geonote_label_orientation_enable');
+                                orEnBtn.addEventListener("click", function(evt) {
+                                    evt.currentTarget.classList.remove('olControlItemInactive');
+                                    evt.currentTarget.classList.add('olControlItemActive');
+                                    orBtn = document.getElementById('geonote_label_orientation_disable');
+                                    orBtn.classList.remove('olControlItemActive');
+                                    orBtn.classList.add('olControlItemInactive');
+                                    document.getElementById('geonote_orientation_text').setAttribute('value',"1");
+                                });
+                                var orDisBtn = document.getElementById('geonote_label_orientation_disable');
+                                orDisBtn.addEventListener("click", function(evt) {
+                                    evt.currentTarget.classList.remove('olControlItemInactive');
+                                    evt.currentTarget.classList.add('olControlItemActive');
+                                    orBtn = document.getElementById('geonote_label_orientation_enable');
+                                    orBtn.classList.remove('olControlItemActive');
+                                    orBtn.classList.add('olControlItemInactive');
+                                    document.getElementById('geonote_orientation_text').setAttribute('value',"");
+                                });
+                            },
+                            'deactivate': function() {
+                                var toolsDiv = document.getElementById('geonote_panel_elem_options_create_point');
+                                toolsDiv.innerHTML = '';
+                                if (this.ctrl.redlineLayer.features.length > 0) {
+                                    this.ctrl.redlineLayer.features[this.ctrl.redlineLayer.features.length-1].style = null;
+                                    this.ctrl.redlineLayer.redraw();
+                                }
+                            }
+                        }
+                    }
+                ),
+                new OpenLayers.Control.DrawFeature(
+                    this.redlineLayer,
+                    OpenLayers.Handler.Point,
+                    {
+                        ctrl: this,
+                        iconclass:"glyphicon-white glyphicon-certificate",
+                        text:"Simbolo",
+                        title:"Inserisci simbolo",
+                        eventListeners: {
+                            'activate': function(){
+                                this.map.currentControl.deactivate();
+                                this.map.currentControl=this;
+                                var fontFiles = this.ctrl.symbolFontFiles;
+                                var pendingRequests = fontFiles.length;
+                                var toolsDiv = document.getElementById('geonote_panel_elem_options_create_point');
+                                var symbolArr = [];
+                                toolsDiv.style.height = '300px';
+                                toolsDiv.style.overflow = 'auto';
+                                toolsDiv.innerHTML = '<div><span class="geonote_options_header">Disegna simbolo</span><span class="geonote_options_content">\
+                                <a id="geonote_label_orientation_disable" class="olButton olControlItemInactive">Semplice</a>\
+                                <a id="geonote_label_orientation_enable" class="olButton olControlItemActive">Orientato</a></span>';
+                                toolsDiv.innerHTML += '<input type="hidden" value="" class="form-control" id="geonote_symbol_text" data-geonote-symbol="" data-geonote-attr="attach">';
+                                toolsDiv.innerHTML += '<input type="hidden" value="1" class="form-control"  id="geonote_orientation_text" data-geonote-attr="orientation">';
+                                for (var k=0; k<fontFiles.length; k++) {
+                                    OpenLayers.Request.GET({
+                                    url: this.ctrl.baseUrl + '/admin/ajax/dbList.php',
+                                    params: {
+                                        project: this.map.config.projectName,
+                                        prm_livello: 'style',
+                                        selectedField: 'symbol_name',
+                                        font_name: fontFiles[k]
+                                    },
+                                    scope: this,
+                                    callback: function(response, conf, url) {
+                                        var self = this;
+                                        if(!response || typeof(response) != 'object' || !response.status || response.status != 200) {
+                                            return alert('Errore di sistema');
+                                        }
+
+                                        if (!response.responseText) {
+                                            return;
+                                        }
+
+                                        var responseObj = JSON.parse(response.responseText);
+
+                                        if (!responseObj.result || responseObj.result != 'ok') {
+                                            var errMessage = 'Errore in estrazione simboli da font';
+                                            if (responseObj.error)
+                                                errMessage += ' - Dettagli: ' + responseObj.error;
+                                            return alert (errMessage);
+                                        }
+                                        symbolArr = responseObj.data.concat(symbolArr);
+                                        pendingRequests--;
+                                        if (pendingRequests <= 0) {
+                                            var classEn = 'olControlItemActive';
+                                            var baseUrl = this.ctrl.baseUrl;
+                                            symbolArr.sort(function(a,b){
+                                                if (a.symbol < b.symbol) {
+                                                    return -1;
+                                                }
+                                                else if (a.symbol > b.symbol) {
+                                                    return 1;
+                                                }
+                                                return 0;
+                                            });
+                                            for (var i=0; i<symbolArr.length; i++) {
+                                                toolsDiv.innerHTML += '<div><span class="geonote_options_header geonote_symbol_label">' + symbolArr[i].symbol +
+                                                '</span><span class="geonote_options_content"><a id="geonote_symbol_btn_' + symbolArr[i].symbol + '" data-geonote-symbol="' + symbolArr[i].symbol + '" class="olButton ' + classEn + '"><img src="' +
+                                                baseUrl + '/admin/getImage.php?table=symbol&id=' + symbolArr[i].symbol + '"></a></span></div>';
+                                                classEn = 'olControlItemInactive';
+                                            }
+
+                                            var symbolHCtrl = document.getElementById("geonote_symbol_text");
+                                            symbolHCtrl.setAttribute('value', this.ctrl.baseUrl + '/admin/getImage.php?table=symbol&id=' + symbolArr[0].symbol + '&transparency=1');
+                                            symbolHCtrl.setAttribute('data-geonote-symbol', symbolArr[0].symbol);
+
+                                            for (var i=0; i<symbolArr.length; i++) {
+                                                var symbolBtn = document.getElementById('geonote_symbol_btn_'+symbolArr[i].symbol);
+                                                symbolBtn.addEventListener("click", function(evt) {
+                                                    var symbolHCtrl = document.getElementById("geonote_symbol_text");
+                                                    var symbolOld = symbolHCtrl.getAttribute('data-geonote-symbol');
+                                                    var symbolNew = evt.currentTarget.getAttribute('data-geonote-symbol');
+                                                    var ctrlOld = document.getElementById('geonote_symbol_btn_' + symbolOld);
+                                                    ctrlOld.classList.remove('olControlItemActive');
+                                                    ctrlOld.classList.add('olControlItemInactive');
+                                                    symbolHCtrl.setAttribute('value', baseUrl + '/admin/getImage.php?table=symbol&id=' + symbolNew + '&transparency=1');
+                                                    symbolHCtrl.setAttribute('data-geonote-symbol', symbolNew);
+                                                    evt.currentTarget.classList.remove('olControlItemInactive');
+                                                    evt.currentTarget.classList.add('olControlItemActive');
+                                                });
+                                            }
+                                            var orEnBtn = document.getElementById('geonote_label_orientation_enable');
+                                            orEnBtn.addEventListener("click", function(evt) {
+                                                evt.currentTarget.classList.remove('olControlItemInactive');
+                                                evt.currentTarget.classList.add('olControlItemActive');
+                                                orBtn = document.getElementById('geonote_label_orientation_disable');
+                                                orBtn.classList.remove('olControlItemActive');
+                                                orBtn.classList.add('olControlItemInactive');
+                                                document.getElementById('geonote_orientation_text').setAttribute('value',"1");
+                                            });
+                                            var orDisBtn = document.getElementById('geonote_label_orientation_disable');
+                                            orDisBtn.addEventListener("click", function(evt) {
+                                                evt.currentTarget.classList.remove('olControlItemInactive');
+                                                evt.currentTarget.classList.add('olControlItemActive');
+                                                orBtn = document.getElementById('geonote_label_orientation_enable');
+                                                orBtn.classList.remove('olControlItemActive');
+                                                orBtn.classList.add('olControlItemInactive');
+                                                document.getElementById('geonote_orientation_text').setAttribute('value',"");
+                                            });
+                                        }
+                                    }
+                                });
+                                }
+                            },
+                            'deactivate': function() {
+                                var toolsDiv = document.getElementById('geonote_panel_elem_options_create_point');
+                                toolsDiv.innerHTML = '';
+                                toolsDiv.style.removeProperty('height');
+                                toolsDiv.style.removeProperty('overflow');
+                                if (this.ctrl.redlineLayer.features.length > 0) {
+                                    this.ctrl.redlineLayer.features[this.ctrl.redlineLayer.features.length-1].style = null;
+                                    this.ctrl.redlineLayer.redraw();
+                                }
+                            }
+                        }
+                    }
+                ),
+            ],
+            create_line: [
+                new OpenLayers.Control.DrawFeature(
+                    this.redlineLayer,
+                    OpenLayers.Handler.Path,
+                    {
+                        handlerOptions:{freehand:false},
+                        iconclass:"glyphicon-white glyphicon-chevron-left",
+                        text:"Spezzata",
+                        title:"Inserisci linea spezzata",
+                        eventListeners: {
+                            'activate': function(){
+                                this.map.currentControl.deactivate();
+                                this.map.currentControl=this;
+                                var toolsDiv = document.getElementById('geonote_panel_elem_options_create_line');
+                                var htmlText = '<div><span class="geonote_options_header">Spessore linea</span><span class="geonote_options_content">';
+                                htmlText += '<select class="form-control" id="geonote_strokewidth_text" data-geonote-attr="strokewidth">'
+                                for (var i=1; i<=20;i++) {
+                                    htmlText += '<option value="'+i+'">'+i+'</option>';
+                                }
+                                htmlText += '</select>';
+                                htmlText +='</span></div>';
+                                htmlText += '<div><span class="geonote_options_header">Stile linea</span><span class="geonote_options_content">';
+                                htmlText += '<select class="form-control" id="geonote_dashstyle_text" data-geonote-attr="dashstyle">';
+                                htmlText += '<option selected value="solid">continua</option>';
+                                htmlText += '<option value="dot">punti</option>';
+                                htmlText += '<option value="dash">tratteggio</option>';
+                                htmlText += '<option value="longdash">tratteggio lungo</option>';
+                                htmlText += '<option value="dashdot">linea punto</option>';
+                                htmlText += '<option value="longdashdot">linea lunga punto</option>';
+                                htmlText += '</select>';
+                                htmlText +='</span></div>';
+                                toolsDiv.innerHTML = htmlText;
+
+                            },
+                            'deactivate': function() {
+                                var toolsDiv = document.getElementById('geonote_panel_elem_options_create_line');
+                                toolsDiv.innerHTML = '';
+                            }
+                        }
+                    }
+                ),
+                new OpenLayers.Control.DrawFeature(
+                    this.redlineLayer,
+                    OpenLayers.Handler.Path,
+                    {
+                        handlerOptions:{freehand:true},
+                        iconclass:"glyphicon-white glyphicon-pencil",
+                        text:"Curva",
+                        title:"Inserisci linea curva",
+                        eventListeners: {
+                            'activate': function(){
+                                this.map.currentControl.deactivate();
+                                this.map.currentControl=this;
+                                var toolsDiv = document.getElementById('geonote_panel_elem_options_create_line');
+                                var htmlText = '<div><span class="geonote_options_header">Spessore linea</span><span class="geonote_options_content">';
+                                htmlText += '<select class="form-control" id="geonote_strokewidth_text" data-geonote-attr="strokewidth">'
+                                for (var i=1; i<=20;i++) {
+                                    htmlText += '<option value="'+i+'">'+i+'</option>';
+                                }
+                                htmlText += '</select>';
+                                htmlText +='</span></div>';
+                                htmlText += '<div><span class="geonote_options_header">Stile linea</span><span class="geonote_options_content">';
+                                htmlText += '<select class="form-control" id="geonote_dashstyle_text" data-geonote-attr="dashstyle">';
+                                htmlText += '<option selected value="solid">continua</option>';
+                                htmlText += '<option value="dot">punti</option>';
+                                htmlText += '<option value="dash">tratteggio</option>';
+                                htmlText += '<option value="longdash">tratteggio lungo</option>';
+                                htmlText += '<option value="dashdot">linea punto</option>';
+                                htmlText += '<option value="longdashdot">linea lunga punto</option>';
+                                htmlText += '</select>';
+                                htmlText +='</span></div>';
+                                toolsDiv.innerHTML = htmlText;
+                            },
+                            'deactivate': function() {
+                                var toolsDiv = document.getElementById('geonote_panel_elem_options_create_line');
+                                toolsDiv.innerHTML = '';
+                            }
+                        }
+                    }
+                ),
+            ],
+            create_polygon: [
+                new OpenLayers.Control.DrawFeature(
+                    this.redlineLayer,
+                    OpenLayers.Handler.Polygon,
+                    {
+                        iconclass:"glyphicon-white glyphicon-unchecked",
+                        text:"Poligono",
+                        title:"Inserisci poligono",
+                        eventListeners: {'activate': function(){
+                                this.map.currentControl.deactivate();
+                                this.map.currentControl=this;
+                            }
+                        }
+                    }
+                ),
+                new OpenLayers.Control.DrawFeature(
+                    this.redlineLayer,
+                    OpenLayers.Handler.RegularPolygon,
+                    {
+                        handlerOptions: {sides: 50},
+                        iconclass:"glyphicon-white glyphicon-record",
+                        text:"Cerchio",
+                        title:"Inserisci cerchio",
+                        eventListeners: {'activate': function(){
+                                this.map.currentControl.deactivate();
+                                this.map.currentControl=this;
+                            }
+                        }
+                    }
+                ),
+                new OpenLayers.Control.DrawFeature(
+                    this.redlineLayer,
+                    OpenLayers.Handler.RegularPolygon,
+                    {
+
+                        handlerOptions: {sides: 3},
+                        iconclass:"glyphicon-white glyphicon-record",
+                        text:"Poligono Regolare",
+                        title:"Inserisci Poligono Regolare",
+                        eventListeners: {
+                            'activate': function(){
+                                var ctrl = this;
+                                this.map.currentControl.deactivate();
+                                this.map.currentControl=this;
+                                var toolsDiv = document.getElementById('geonote_panel_elem_options_create_polygon');
+                                var htmlText = '<div><span class="geonote_options_header">Numero lati</span><span class="geonote_options_content">';
+                                htmlText += '<select class="form-control" id="geonote_polygon_sides_text">'
+                                for (var i=3; i<=20;i++) {
+                                    htmlText += '<option value="'+i+'">'+i+'</option>';
+                                }
+                                htmlText += '</select>';
+                                htmlText +='</span></div>';
+                                toolsDiv.innerHTML = htmlText;
+                                var selTag = toolsDiv.getElementsByTagName('select').item(0);
+                                selTag.addEventListener("change", function(evt) {
+                                    ctrl.handler.sides = evt.currentTarget.value;
+                                });
+                            },
+                            'deactivate': function() {
+                                var toolsDiv = document.getElementById('geonote_panel_elem_options_create_polygon');
+                                toolsDiv.innerHTML = '';
+                            }
+                        }
+                    }
+                ),
+            ],
+            create_quote: [
+                new OpenLayers.Control.DynamicMeasure(OpenLayers.Handler.Path,{
+                    ctrl: this,
+                    iconclass:"glyphicon-white glyphicon-resize-horizontal",
+                    text:"Quota allineata",
+                    title:"Inserisci Quota allineata",
+                    geodesic:true,
                     eventListeners: {
-                        'activate': function(){
+                        'activate': function() {
                             this.map.currentControl.deactivate();
+                            this.map.currentControl=this;
+                        },
+                        'measure': function(obj) {
+                            var totGeomPoints = this.handler.layer.features[0].geometry.getVertices();
+                            var quoteArr = new Array();
+                            for (var i=0; i<this.layerSegments.features.length; i++) {
+                                var quoteObj = this.layerSegments.features[i];
+                                var ptArr =  [totGeomPoints[quoteObj.attributes.from], totGeomPoints[quoteObj.attributes.from+1]];
+                                var quoteGeom = new OpenLayers.Geometry.LineString(ptArr);
+                                var quoteFeature = new OpenLayers.Feature.Vector(quoteGeom, {label: quoteObj.attributes.measure+' '+quoteObj.attributes.units,unit:quoteObj.attributes.units,quote_id:obj.geometry.id+'_'+i,angle:0,color:this.ctrl.redlineColor,symbol:'circle',strokewidth:'1'});
+                                var bounds = quoteGeom.getBounds();
+                                var center = bounds.getCenterLonLat();
+                                var dx = ptArr[1].x-ptArr[0].x;
+                                var dy = ptArr[1].y-ptArr[0].y;
+                                var angle = Math.atan2(dx,dy);
+                                var angle1 = Math.atan2(dy,dx);
+                                var dist = 12 * this.map.getResolution();
+                                quoteFeature.attributes.centroid = new OpenLayers.Geometry.Point(center.lon - Math.sin(angle1) * dist,Math.cos(angle1) * dist + center.lat);
+                                quoteFeature.attributes.angle = angle*180/Math.PI-90;
+                                if (quoteFeature.attributes.angle <0) quoteFeature.attributes.angle+=360;
+                                quoteArr.push(quoteFeature);
+                                var pointAngle = quoteFeature.attributes.angle + 270;
+                                if (pointAngle > 360) pointAngle -= 360;
+                                quoteArr.push(new OpenLayers.Feature.Vector(ptArr[0],{label:'',quote_id:obj.geometry.id+'_'+i,node:0,angle:pointAngle,color:this.ctrl.redlineColor,symbol:'triangle',radius:4,attach:''}));
+                                pointAngle += 180;
+                                if (pointAngle > 360) pointAngle -= 360;
+                                quoteArr.push(new OpenLayers.Feature.Vector(ptArr[1],{label:'',quote_id:obj.geometry.id+'_'+i,node:1,angle:pointAngle,color:this.ctrl.redlineColor,symbol:'triangle',radius:4,attach:''}));
+                            }
+                            this.ctrl.redlineLayer.addFeatures(quoteArr);
+                            this.handler.layer.destroyFeatures();
+                            this.layerSegments.destroyFeatures();
+                            this.layerLength.destroyFeatures();
+                            //vectorLayer.addFeatures([tmpVector]);
+                        },
+                    }
+                }),
+                new OpenLayers.Control.DrawFeature(
+                    this.redlineLayer,
+                    OpenLayers.Handler.RegularPolygon,
+                    {
+                        handlerOptions: {sides: 50},
+                        iconclass:"glyphicon-white glyphicon-log-in",
+                        text:"Quota ortogonale",
+                        title:"Inserisci quota ortogonale",
+                        eventListeners: {'activate': function(){
+                            alert('Funzionalità non disponibile');
+                            this.deactivate();
+                                //this.map.currentControl.deactivate();
+                                //this.map.currentControl=this;
+                            }
+                        }
+                    }
+                )
+            ],
+            geom_edit: [
+                new OpenLayers.Control.GeoNoteModifyFeature(
+                    this.redlineLayer,
+                    {
+                        mode: OpenLayers.Control.ModifyFeature.ROTATE,
+                        vertexRenderIntent: 'temporary',
+                        iconclass:"glyphicon-white glyphicon-repeat",
+                        text:"Ruota",
+                        title:"Modifica geometrie - ruota",
+                        eventListeners: {
+                            'activate': function(){
+                                this.map.currentControl.deactivate();
+
+                                var origLayerIndex = this.map.getLayerIndex(this.layer);
+                                var maxIndex = this.map.getLayerIndex(this.map.layers[this.map.layers.length -1]);
+                                if(origLayerIndex < maxIndex) this.map.raiseLayer(this.layer, (maxIndex - origLayerIndex));
+                                this.map.resetLayersZIndex();
+
+                                this.map.currentControl=this
+                            }
+                        }
+                    }
+                ),
+                new OpenLayers.Control.GeoNoteModifyFeature(
+                    this.redlineLayer,
+                    {
+                        mode: OpenLayers.Control.ModifyFeature.RESIZE,
+                        vertexRenderIntent: 'temporary',
+                        iconclass:"glyphicon-white glyphicon-resize-full",
+                        text:"Ridimensiona",
+                        title:"Modifica geometrie - ridimensiona",
+                        eventListeners: {
+                            'activate': function(){
+                                this.map.currentControl.deactivate();
+
+                                var origLayerIndex = this.map.getLayerIndex(this.layer);
+                                var maxIndex = this.map.getLayerIndex(this.map.layers[this.map.layers.length -1]);
+                                if(origLayerIndex < maxIndex) this.map.raiseLayer(this.layer, (maxIndex - origLayerIndex));
+                                this.map.resetLayersZIndex();
+
+                                this.map.currentControl=this
+                            }
+                        }
+                    }
+                ),
+                new OpenLayers.Control.GeoNoteModifyFeature(
+                    this.redlineLayer,
+                    {
+                        mode: OpenLayers.Control.ModifyFeature.DRAG,
+                        vertexRenderIntent: 'temporary',
+                        iconclass:"glyphicon-white glyphicon-move",
+                        text:"Sposta",
+                        title:"Modifica geometrie - sposta",
+                        eventListeners: {
+                            'activate': function(){
+                                this.map.currentControl.deactivate();
+
+                                var origLayerIndex = this.map.getLayerIndex(this.layer);
+                                var maxIndex = this.map.getLayerIndex(this.map.layers[this.map.layers.length -1]);
+                                if(origLayerIndex < maxIndex) this.map.raiseLayer(this.layer, (maxIndex - origLayerIndex));
+                                this.map.resetLayersZIndex();
+
+                                this.map.currentControl=this
+                            }
+                        }
+                    }
+                ),
+                new OpenLayers.Control.GeoNoteModifyFeature(
+                    this.redlineLayer,
+                    {
+                        mode: OpenLayers.Control.ModifyFeature.RESHAPE,
+                        vertexRenderIntent: 'temporary',
+                        iconclass:"glyphicon-white glyphicon-pencil",
+                        text:"Modifica Vertici",
+                        title:"Modifica geometrie - modifica vertici",
+                        eventListeners: {
+                            'activate': function(){
+                                this.map.currentControl.deactivate();
+
+                                var origLayerIndex = this.map.getLayerIndex(this.layer);
+                                var maxIndex = this.map.getLayerIndex(this.map.layers[this.map.layers.length -1]);
+                                if(origLayerIndex < maxIndex) this.map.raiseLayer(this.layer, (maxIndex - origLayerIndex));
+                                this.map.resetLayersZIndex();
+
+                                this.map.currentControl=this
+                            }
+                        }
+                    }
+                ),
+                new OpenLayers.Control.SelectFeature(
+                    this.redlineLayer,
+                    {
+                        ctrl: this,
+                        iconclass:"glyphicon-white glyphicon-remove",
+                        text:"Cancella",
+                        title:"Cancella geometria",
+                        eventListeners: {'activate': function(){this.map.currentControl.deactivate();this.map.currentControl=this}},
+                        onSelect:function(feature){
+                            var self = this;
 
                             var origLayerIndex = this.map.getLayerIndex(this.layer);
                             var maxIndex = this.map.getLayerIndex(this.map.layers[this.map.layers.length -1]);
                             if(origLayerIndex < maxIndex) this.map.raiseLayer(this.layer, (maxIndex - origLayerIndex));
                             this.map.resetLayersZIndex();
 
-                            this.map.currentControl=this
+                            self.unselectAll();
+                            if (confirm('Eliminare la geometria selezionata?')) {
+                                self.layer.removeFeatures([feature]);
+                                this.ctrl.savedState = false;
+                            }
                         }
                     }
-                }
-            ),
-            new OpenLayers.Control.SelectFeature(
-                this.redlineLayer,
-                {
-                    ctrl: this,
-                    iconclass:"glyphicon-white glyphicon-remove",
-                    text:"Cancella",
-                    title:"Cancella geometria",
-                    eventListeners: {'activate': function(){this.map.currentControl.deactivate();this.map.currentControl=this}},
-                    onSelect:function(feature){
-                        var self = this;
-
-                        var origLayerIndex = this.map.getLayerIndex(this.layer);
-                        var maxIndex = this.map.getLayerIndex(this.map.layers[this.map.layers.length -1]);
-                        if(origLayerIndex < maxIndex) this.map.raiseLayer(this.layer, (maxIndex - origLayerIndex));
-                        this.map.resetLayersZIndex();
-
-                        self.unselectAll();
-                        if (confirm('Eliminare la geometria selezionata?')) {
-                            self.layer.removeFeatures([feature]);
-                            this.ctrl.savedState = false;
+                )
+            ],
+            note_snap: [
+                new OpenLayers.Control(
+                    {
+                        ctrl: this,
+                        type: OpenLayers.Control.TYPE_BUTTON ,
+                        iconclass:"glyphicon-white glyphicon-list-alt",
+                        text:"Snapping attivato",
+                        title:"Snapping attivato",
+                        trigger: function(){
+                            var ctrl = this.ctrl;
+                            var defaultLayers = 'btu_edificato-viabilita-simbologia.btu_edificato_a,btu_edificato-viabilita-simbologia.btu_edificato_l,btu_edificato-viabilita-simbologia.btu_edificato_p';
+                            if (!this.active) {
+                                this.activate();
+                                this.ctrl.controlList.note_snap[1].deactivate();
+                                this.ctrl.snapLayer.featureTypes = defaultLayers.split(',');
+                                this.ctrl.getSnapFeatures();
+                                this.ctrl.snapCtrl.activate();
+                                this.map.events.register('moveend', this.ctrl, this.ctrl.getSnapFeatures);
+                                var toolsDiv = document.getElementById('geonote_panel_elem_options_note_snap');
+                                var group = '';
+                                var htmlText = '<div><span class="geonote_options_header">Snap a layer</span><span class="geonote_options_content">';
+                                htmlText += '<select class="form-control" id="geonote_snaplayer_text">';
+                                htmlText += '<option selected value="' + defaultLayers + '">Predefinito</option>';
+                                var layersArr = new Array();
+                                for (index in this.ctrl.snapMapQuery.wfsCache){
+                                    var featureTypes = this.ctrl.snapMapQuery.wfsCache[index].featureTypes;
+                                    for(var i=0;i<featureTypes.length;i++){
+                                        if(group != featureTypes[0].group) {
+                                            if (group) {
+                                                htmlText += '<option value="' + layersArr.join(',') + '">' + group + '</option>';
+                                            }
+                                            layersArr = new Array();
+                                            group = featureTypes[0].group;
+                                            //htmlText += '<optgroup label="' + group + '">';
+                                        }
+                                        layersArr.push(featureTypes[i].typeName);
+                                        //htmlText += '<option value="' + featureTypes[i].typeName + '">' + featureTypes[i].title + '</option>';
+                                    }
+                                };
+                                htmlText += '<option value="' + layersArr.join(',') + '">' + group + '</option>';
+                                htmlText += '</select>';
+                                htmlText +='</span></div>';
+                                toolsDiv.innerHTML = htmlText;
+                                var selTag = toolsDiv.getElementsByTagName('select').item(0);
+                                selTag.addEventListener("change", function(evt) {
+                                    ctrl.snapLayer.featureTypes = evt.currentTarget.value.split(',');
+                                    ctrl.getSnapFeatures();
+                                });
+                            }
                         }
                     }
-                }
-            ),
-            new OpenLayers.Control(
-                {
-                    type: OpenLayers.Control.TYPE_BUTTON ,
-                    displayClass: "olToolbarSeparator",
-                    iconclass:"glyphicon-white glyphicon-option-vertical",
-                    trigger: function() {}
-                }
-            ),
-            new OpenLayers.Control(
-                {
-                    ctrl: this,
-                    type: OpenLayers.Control.TYPE_BUTTON ,
-                    iconclass:"glyphicon-white glyphicon-list-alt",
-                    text:"Nuova",
-                    title:"Nuova nota",
-                    trigger: this.noteNew
-                }
-            ),
-            new OpenLayers.Control(
-                {
-                    ctrl: this,
-                    type: OpenLayers.Control.TYPE_BUTTON ,
-                    iconclass:"glyphicon-white glyphicon-floppy-saved",
-                    text:"Salva",
-                    title:"Salva nota",
-                    trigger: this.noteSave
-                }
-            ),
-            new OpenLayers.Control(
-                {
-                    ctrl: this,
-                    type: OpenLayers.Control.TYPE_BUTTON ,
-                    iconclass:"glyphicon-white glyphicon-floppy-open",
-                    text:"Carica",
-                    title:"Carica nota",
-                    trigger: this.noteLoad
-                }
-            ),
-            new OpenLayers.Control(
-                {
-                    ctrl: this,
-                    type: OpenLayers.Control.TYPE_BUTTON ,
-                    iconclass:"glyphicon-white glyphicon-floppy-remove",
-                    text:"Elimina",
-                    title:"Elimina nota",
-                    trigger: this.noteDelete
-                }
-            ),
-
-        ];
-
-    this.addControls(controls);
+                ),
+                new OpenLayers.Control(
+                    {
+                        ctrl: this,
+                        type: OpenLayers.Control.TYPE_BUTTON ,
+                        iconclass:"glyphicon-white glyphicon-floppy-saved",
+                        text:"Snapping disattivato",
+                        title:"Snapping disattivato",
+                        trigger: function() {
+                            if (!this.active) {
+                                this.activate();
+                                this.ctrl.controlList.note_snap[0].deactivate();
+                                this.ctrl.snapLayer.featureTypes = [];
+                                this.ctrl.snapCtrl.deactivate();
+                                this.map.events.unregister('moveend', this.ctrl, this.ctrl.getSnapFeatures);
+                                var toolsDiv = document.getElementById('geonote_panel_elem_options_note_snap');
+                                toolsDiv.innerHTML = '';
+                            }
+                        }
+                    }
+                )
+            ],
+            note_manage: [
+                new OpenLayers.Control(
+                    {
+                        ctrl: this,
+                        type: OpenLayers.Control.TYPE_BUTTON ,
+                        iconclass:"glyphicon-white glyphicon-list-alt",
+                        text:"Nuova",
+                        title:"Nuova nota",
+                        trigger: this.noteNew
+                    }
+                ),
+                new OpenLayers.Control(
+                    {
+                        ctrl: this,
+                        type: OpenLayers.Control.TYPE_BUTTON ,
+                        iconclass:"glyphicon-white glyphicon-floppy-saved",
+                        text:"Salva",
+                        title:"Salva nota",
+                        trigger: this.noteSave
+                    }
+                ),
+                new OpenLayers.Control(
+                    {
+                        ctrl: this,
+                        type: OpenLayers.Control.TYPE_BUTTON ,
+                        iconclass:"glyphicon-white glyphicon-floppy-open",
+                        text:"Carica",
+                        title:"Carica nota",
+                        trigger: this.noteLoad
+                    }
+                ),
+                new OpenLayers.Control(
+                    {
+                        ctrl: this,
+                        type: OpenLayers.Control.TYPE_BUTTON ,
+                        iconclass:"glyphicon-white glyphicon-floppy-remove",
+                        text:"Elimina",
+                        title:"Elimina nota",
+                        trigger: this.noteDelete
+                    }
+                )
+            ]
+        });
     },
 
     draw:function(){
+        // **** Init vector layers
         this.initRedlineLayer();
-        OpenLayers.Control.Panel.prototype.draw.apply(this);
 
-        for (var i=0, len=this.controls.length; i<len; i++) {
-            if(this.controls[i] instanceof OpenLayers.Control.DrawFeature){
-                //this.controls[i].layer = this.redlineLayer;
-                //this.controls[i].events.register('startQueryMap', this, this.initResultPanel);
-                //this.controls[i].events.register('featuresLoaded', this, this.handleFeatureResult);
-                //this.controls[i].events.register('endQueryMap', this, this.writeAllResultPanel);
+        // **** Init snap layer
+        var layer;
+        for (var i = 0; i < this.map.config.featureTypes.length; i++) {
+            layer =  this.map.getLayersByName(this.map.config.featureTypes[i].WMSLayerName)[0];
+            if(layer){
+                if(typeof(this.snapMapQuery.wfsCache[layer.id])=='undefined') this.snapMapQuery.wfsCache[layer.id] = {featureTypes:[]};
+                this.snapMapQuery.wfsCache[layer.id].featureTypes.push(this.map.config.featureTypes[i]);
             }
-        }
+        };
+        this.map.addControls([this.snapMapQuery,this.snapCtrl]);
 
-        var mainDiv = this.div.parentElement;
-        var divNoteTitle = document.createElement('div');
-        divNoteTitle.setAttribute('id', 'geonote_note_title_div');
-        mainDiv.appendChild(divNoteTitle);
-        var txtNoteHeader = document.createElement('span');
-        txtNoteHeader.setAttribute('id', 'geonote_note_header');
-        divNoteTitle.appendChild(txtNoteHeader);
-        var txtNoteTitle = document.createElement('span');
-        txtNoteTitle.setAttribute('id', 'geonote_note_title');
-        divNoteTitle.appendChild(txtNoteTitle);
+        var controlIDs = Object.keys(this.controlList);
+        for (var k = 0; k < controlIDs.length; k++) {
+            var controlID = controlIDs[k];
+            var controlDiv = this.mainPanel.getElementsByClassName('geonote_panel_elem_content').namedItem('geonote_panel_elem_content_' + controlID);
+            var toolbarCtrl = new OpenLayers.Control.Panel({
+                gc_id: 'control-redline-' + controlID,
+                baseUrl: GisClientMap.baseUrl,
+                createControlMarkup:customCreateControlMarkup,
+                div: controlDiv,
+                autoActivate:true,
+                saveState:true
+            });
+            toolbarCtrl.addControls(this.controlList[controlID]);
+            this.map.addControl(toolbarCtrl);
+        };
 
+        var self=this;
+        this.noteColorPicker = ColorPicker(
+                self.mainPanel.getElementsByClassName('cp-default').item(0),
+                function(hex, hsv, rgb) {
+                    self.mainPanel.getElementsByClassName("geonote_colorpicker_display").item(0).style.backgroundColor = hex;
+                    self.mainPanel.getElementsByClassName("geonote_colorpicker_header_badge").item(0).style.color = hex;
+                    if (self.noteColorPicker.panel == "geonote_panel_cls_draw") {
+                        self.redlineColor = hex;
+                    }
+                    else if (self.noteColorPicker.panel == "geonote_panel_cls_edit") {
+                        self.redlineColorM = hex;
+                        for (var i=0; i<self.redlineLayer.selectedFeatures.length; i++) {
+                            self.redlineLayer.selectedFeatures[i].attributes.color = hex;
+                            if (self.redlineLayer.selectedFeatures[i].attributes.attach) {
+                                self.redlineLayer.selectedFeatures[i].attributes.attach = self.updateQueryString(self.redlineLayer.selectedFeatures[i].attributes.attach,{'color':hex.substring(1)});
+                            }
+                        }
+                    }
+                });
+        this.noteColorPicker.panel = "geonote_panel_cls_draw";
+        this.noteColorPicker.setHex(this.redlineColor);
+
+        var isGeodesicMeasure = (this.map.projection == 'EPSG:3857' || this.map.projection == 'EPSG:4326')?true:false;
+        this.controlList.create_quote[0].geodesic = isGeodesicMeasure;
+
+        OpenLayers.Control.Panel.prototype.draw.apply(this);
         return this.div
     },
 
     redraw: function() {
-
         OpenLayers.Control.Panel.prototype.redraw.apply(this);
 
-        for (var i=0, len=this.controls.length; i<len; i++) {
-            if (this.controls[i].div)
-            if(this.controls[i] instanceof OpenLayers.Control.DrawFeature){
-                //this.controls[i].div = drawBtns;
-                //this.controls[i].events.register('startQueryMap', this, this.initResultPanel);
-                //this.controls[i].events.register('featuresLoaded', this, this.handleFeatureResult);
-                //this.controls[i].events.register('endQueryMap', this, this.writeAllResultPanel);
-            }
-        }
+        this.div.appendChild(this.mainPanel);
 
         var divNoteTitle = document.getElementById("geonote_note_title_div");
         var txtNoteHeader = document.getElementById("geonote_note_header");
         var txtNoteTitle = document.getElementById("geonote_note_title");
+        var txtNoteHeaderM = document.getElementById("geonote_note_header_mapset");
+        var txtNoteTitleM = document.getElementById("geonote_note_mapset");
+        var txtNoteHeaderS = document.getElementById("geonote_note_header_status");
+        var txtNoteTitleS = document.getElementById("geonote_note_status");
 
         if (this.active) {
-            divNoteTitle.className = 'olInfoBar';
+            //divNoteTitle.className = 'olInfoBar';
             txtNoteHeader.className = 'spanHeader';
             txtNoteHeader.textContent = 'Titolo nota:';
             txtNoteTitle.className = 'spanTitle';
             txtNoteTitle.textContent = this.noteTitle;
+            txtNoteHeaderM.className = 'spanHeader';
+            txtNoteHeaderM.textContent = 'Mappa di riferimento:';
+            txtNoteTitleM.className = 'spanTitle';
+            txtNoteTitleM.textContent = this.map.config.mapsetTitle;
+            txtNoteHeaderS.className = 'spanHeader';
+            txtNoteHeaderS.textContent = 'Stato nota:';
+            txtNoteTitleS.className = 'spanTitle';
+            if (this.noteID && this.noteList.hasOwnProperty(this.noteID)) {
+                txtNoteTitleS.textContent = this.noteList[this.noteID].status;
+            }
+            else {
+                txtNoteTitleS.textContent = this.noteDefaultStatus;
+            }
             //divNoteTitle.style.width = txtNoteTitle.offsetWidth + 20 + 'px';
         }
         else
         {
-            divNoteTitle.className = '';
+            //divNoteTitle.className = '';
             txtNoteHeader.className = '';
             txtNoteHeader.textContent = '';
             txtNoteTitle.className = '';
             txtNoteTitle.textContent = '';
         }
 
+        this.controlList.note_snap[1].activate();
+    },
+
+    activate: function() {
+        var activated = OpenLayers.Control.prototype.activate.call(this);
+        if(activated) {
+            this.noteReset();
+            this.mainPanel.style.display = 'block';
+        }
+    },
+
+    deactivate: function() {
+        if (!this.savedState && this.redlineLayer.features.length > 0) {
+            if (!confirm('Alcuni elementi della nota corrente non sono stati salvati\nSe si disattiva il tool note andranno persi. Continuare?')) {
+                return;
+            }
+        }
+        var deactivated = OpenLayers.Control.prototype.deactivate.call(this);
+        if(deactivated) {
+            this.noteReset();
+            this.map.currentControl.deactivate();
+            this.map.currentControl=this.map.defaultControl;
+            this.mainPanel.style.display = 'none';
+        }
+    },
+
+    createPanelElement: function(panelID, panelClass, panelTitle, panelFoldable, panelContent) {
+        var panelElementDiv = document.createElement("div");
+        panelElementDiv.setAttribute('id', 'geonote_panel_elem_' + panelID);
+        panelElementDiv.classList.add('geonote_panel_elem');
+        if (panelClass) {
+            if (!Array.isArray(panelClass)) {
+                panelElementDiv.classList.add(panelClass);
+            }
+            else {
+                panelElementDiv.classList.add(...panelClass);
+            }
+        }
+        var panelHeaderDiv = document.createElement("div");
+        panelHeaderDiv.setAttribute('id', 'geonote_panel_elem_header_' + panelID);
+        panelHeaderDiv.classList.add('geonote_panel_elem_header');
+        var headerHTML = '';
+        if (panelFoldable) {
+            headerHTML = '<a href="#" id="geonote_panel_elem_toggle_' + panelID + '"><span id="geonote_panel_elem_toggle_span_' + panelID + '" class="icon-hide-panel"></span></a>';
+        }
+        if (panelTitle && panelTitle.length > 0) {
+            headerHTML += '<span id="geonote_panel_elem_title_' + panelID + '">' + panelTitle + '</span>';
+        }
+        panelHeaderDiv.innerHTML = headerHTML;
+        panelElementDiv.appendChild(panelHeaderDiv);
+        var panelContentDiv = document.createElement("div");
+        panelContentDiv.setAttribute('id', 'geonote_panel_elem_content_' + panelID);
+        panelContentDiv.classList.add('geonote_panel_elem_content');
+        if (panelContent) {
+            panelContentDiv.innerHTML = panelContent;
+        }
+        panelElementDiv.appendChild(panelContentDiv);
+        var panelOptionsDiv = document.createElement("div");
+        panelOptionsDiv.setAttribute('id', 'geonote_panel_elem_options_' + panelID);
+        panelOptionsDiv.classList.add('geonote_panel_elem_options');
+        panelElementDiv.appendChild(panelOptionsDiv);
+        this.mainPanel.appendChild(panelElementDiv);
+
+        if (panelFoldable) {
+            var foldA = panelHeaderDiv.getElementsByTagName('a').item(0);
+            var foldS = foldA.getElementsByTagName('span').item(0);
+            foldA.addEventListener("click", function(evt) {
+                event.stopPropagation();
+                if (foldS.classList.contains('icon-hide-panel')) {
+                    foldS.classList.remove('icon-hide-panel');
+                    foldS.classList.add('icon-show-panel');
+                    panelContentDiv.style.display = 'none';
+                }
+                else {
+                    foldS.classList.remove('icon-show-panel');
+                    foldS.classList.add('icon-hide-panel');
+                    panelContentDiv.style.display = 'block';
+                }
+            });
+        }
+    },
+
+    managePanels: function() {
+        var panels = this.ctrl.mainPanel.getElementsByClassName(this.panelclass);
+        var allPanels = this.ctrl.mainPanel.getElementsByClassName('geonote_panel_elem');
+        var isActive = this.active;
+        this.ctrl.noteColorPicker.panel = this.panelclass;
+        if (this.panelclass == "geonote_panel_cls_draw") {
+            this.ctrl.noteColorPicker.setHex(this.ctrl.redlineColor);
+        }
+        else if (this.panelclass == "geonote_panel_cls_edit") {
+            this.ctrl.noteColorPicker.setHex(this.ctrl.redlineColorM);
+        }
+        else {
+            var toolsDiv = document.getElementById('geonote_panel_elem_options_note_manage');
+            toolsDiv.innerHTML = '';
+        }
+        for (var k=0; k<this.ctrl.controls.length; k++) {
+            this.ctrl.controls[k].deactivate();
+        }
+        if (isActive) {
+            this.deactivate();
+        }
+        else {
+            this.activate();
+        }
+        for (var i=0; i < allPanels.length; i++) {
+            allPanels.item(i).style.display = 'none';
+        }
+        if (!isActive) {
+            for (var i=0; i < panels.length; i++) {
+                panels.item(i).style.display = 'block';
+            }
+        }
+    },
+
+    createPopup: function(popupContent,popupID) {
+        var noteModalBackgound = document.createElement('div')
+        noteModalBackgound.classList.add('geonote_popup_modal_background');
+        var notePopup = document.createElement('div');
+        notePopup.setAttribute('id', 'geonote-popup');
+        notePopup.classList.add('geonote_popup_modal_popup');
+        notePopup.innerHTML = '<div><div id="geonote-popup_close" class="olPopupCloseBox" style="width: 17px; height: 17px; position: absolute; right: 5px; top: 5px;"></div></div>'
+        notePopup.innerHTML += popupContent;
+        noteModalBackgound.appendChild(notePopup);
+        document.body.appendChild(noteModalBackgound);
+        noteModalBackgound.addEventListener('click', function (evt) {
+            if (evt.target.className === 'geonote_popup_modal_background') {
+                evt.target.remove();
+            }
+        });
+        var closeBox = notePopup.getElementsByClassName("olPopupCloseBox").item(0);
+        closeBox.addEventListener('click', function (evt) {
+            var modal = document.querySelectorAll('.geonote_popup_modal_background')
+            if (modal) {
+                modal.item(modal.length-1).remove();
+            }
+        });
+    },
+
+    zoomEnd: function() {
+        for (var i=0; i<this.redlineLayer.features.length; i++) {
+            var ftObj = this.redlineLayer.features[i];
+            if (ftObj.attributes.attach) {
+                var oldRes = ftObj.attributes.resolution;
+                var oldSize = ftObj.attributes.attachsize;
+                var res = this.map.getResolution();
+                var newSize = oldSize*oldRes/res;
+                newSize = Math.round(newSize);
+                ftObj.attributes.resolution = res;
+                ftObj.attributes.attachsize = newSize;
+                ftObj.attributes.attach = this.updateQueryString(ftObj.attributes.attach,{'size':newSize});
+            }
+            if (ftObj.attributes.centroid) {
+                var center = ftObj.geometry.getBounds().getCenterLonLat();
+                var ptArr = ftObj.geometry.getVertices();
+                var dx = ptArr[1].x-ptArr[0].x;
+                var dy = ptArr[1].y-ptArr[0].y;
+                var angle1 = Math.atan2(dy,dx);
+                var dist = 12 * this.map.getResolution();
+                ftObj.attributes.centroid = new OpenLayers.Geometry.Point(center.lon - Math.sin(angle1) * dist,Math.cos(angle1) * dist + center.lat);
+            }
+        }
+        this.redlineLayer.redraw();
     },
 
     initRedlineLayer: function() {
@@ -378,7 +1402,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                 MAPSET: GisClientMap.mapsetName,
                 SRS: this.map.projection
             },
-            headers: {"Content-Type": "application/x-www-form-urlencoded"}
+            headers: {"Content-Type": "application/x-www-form-urlencoded"},
         });
 
         this.map.addLayer(this.redlineLayer);
@@ -386,320 +1410,275 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
             "loadend" : ctrl.noteLoaded,
             //"sketchstarted" : ctrl.setFeatureDefaults,
             "sketchcomplete": ctrl.styleFeature,
-            "featureadded": ctrl.setLabel,
+            "beforefeaturemodified": ctrl.styleFeature,
+            "beforefeaturesadded": ctrl.beforeFeaturesAdded,
+            "featureadded": ctrl.featureAdded,
             "featuremodified": ctrl.featureModified,
             "featureremoved": ctrl.featureModified,
             "vertexmodified": ctrl.featureModified,
             scope: ctrl
         });
+        // **** Add snap layers
+        this.map.addLayer(this.snapLayer);
+        this.snapLayer.events.on({
+            "beforefeatureadded": function(obj) {
+                obj.feature.style = {display: 'none'};
+            },
+            scope: ctrl
+        });
     },
 
-    activate: function() {
-        var activated = OpenLayers.Control.prototype.activate.call(this);
-        if(activated) {
-            this.noteReset();
-        }
-    },
-
-    deactivate: function() {
-        if (!this.savedState && this.redlineLayer.features.length > 0) {
-            if (!confirm('Alcuni elementi della nota corrente non sono stati salvati\nSe si disattiva il tool note andranno persi. Continuare?')) {
-                return;
+    beforeFeaturesAdded: function(obj) {
+        var layerLocal = this.redlineLayer;
+        for (var i = obj.features.length-1; i>=0; i--) {
+            var featObj = obj.features[i];
+            if (!featObj.attributes.angle) {
+                featObj.attributes.angle = 0;
+            }
+            if (!featObj.attributes.radius) {
+                featObj.attributes.radius = 0;
+            }
+            if (featObj.attributes.hasOwnProperty('quote_id') && featObj.geometry.CLASS_NAME == "OpenLayers.Geometry.LineString") {
+                if (!featObj.attributes.hasOwnProperty('centroid')) {
+                    var ptArr = featObj.geometry.getVertices();
+                    var dx = ptArr[1].x-ptArr[0].x;
+                    var dy = ptArr[1].y-ptArr[0].y;
+                    var angle1 = Math.atan2(dy,dx);
+                    var dist = 12 * this.map.getResolution();
+                    var center = featObj.geometry.getBounds().getCenterLonLat();
+                    featObj.attributes.centroid = new OpenLayers.Geometry.Point(center.lon - Math.sin(angle1) * dist,Math.cos(angle1) * dist + center.lat);
+                }
+                else {
+                    var popupBtnId = 'geonote_setlabel_button_' + featObj.id;
+                    var popupTxtId = 'geonote_set_label_quote_text_' + featObj.id;
+                    var popupHtml = '<div class="geonote-popup-content"><div class="geonote-popup-form-group"><label for="geonote_label_text">Testo etichetta quota</label>';
+                    popupHtml += '<textarea name="text" class="form-control" id="' + popupTxtId + '">' + featObj.attributes.label + '</textarea>';
+                    popupHtml += '</div><div class="geonote-popup-buttons"><a  id="' + popupBtnId + '" class="geonote-popup-btn" title="Imposta etichetta"><span>Imposta etichetta</span></a></div></div>';
+                    this.createPopup(popupHtml);
+                    var noteBtn = document.getElementById(popupBtnId);
+                    noteBtn.addEventListener('click', function (evt) {
+                        evt.preventDefault();
+                        var featureID = evt.target.parentNode.id.replace('geonote_setlabel_button_','');
+                        var valueTxt = document.getElementById('geonote_set_label_quote_text_' + featureID);
+                        var innerFeature = layerLocal.getFeatureById(featureID);
+                        innerFeature.attributes.label = valueTxt.value;
+                        innerFeature.layer.drawFeature(innerFeature);
+                        var modal = document.querySelectorAll('.geonote_popup_modal_background');
+                        if (modal) {
+                            modal.item(modal.length-1).remove();
+                        }
+                    });
+                }
             }
         }
-        var deactivated = OpenLayers.Control.prototype.deactivate.call(this);
-        if(deactivated) {
-            this.noteReset();
-            this.map.currentControl.deactivate();
-            this.map.currentControl=this.map.defaultControl;
-        }
     },
 
-    setLabel: function(obj) {
-        var ctrl = this;
-        if(obj.feature.geometry.CLASS_NAME == "OpenLayers.Geometry.Point" && ctrl.loading == false) {
-            var request = new XMLHttpRequest();
-            request.addEventListener("load", function(evt){
-                ctrl.addPopup(200, 200, this.response);
-                document.getElementById("geonote_label_attach").addEventListener('click', function () {
-                    document.getElementById("geonote_label_attachment").click();
-                });
+    featureAdded: function(obj) {
 
-                var attachFormData = new FormData();
-                var saveDone = true;
-
-                document.getElementById("geonote_label_attachment").addEventListener('change', function () {
-                    var fileName = (Date.now().toString(36) + Math.random().toString(36).substr(2, 9)).toUpperCase();
-                    var divUploads = document.getElementById("geonote_popup_uploads");
-                    divUploads.innerHTML = "";
-
-                    var button = document.createElement('a'),
-                    icon = document.createElement('span'),
-                    textSpan = document.createElement('span'),
-                    pBarSpan = document.createElement('span');
-
-                    button.className += 'geonote-upload-button';
-                    icon.className += "glyphicon-white glyphicon-file";
-                    textSpan.className += 'geonote-upload-text';
-                    pBarSpan.className += 'geonote-upload-pbar';
-                    button.appendChild(icon);
-                    textSpan.innerHTML = this.files[0].name;
-                    pBarSpan.appendChild(textSpan)
-                    button.appendChild(pBarSpan);
-
-                    divUploads.appendChild(button);
-
-                    attachFormData.append("REQUEST", "attUpload");
-                    attachFormData.append("FILENAME", fileName);
-                    attachFormData.append("ATTACHMENT", this.files[0]);
-
-                    var attachRequest = new XMLHttpRequest();
-
-                    attachRequest.upload.addEventListener("progress", function(e) {
-                        var totSize = textSpan.getBoundingClientRect().width;
-			var pc = parseInt(e.loaded / e.total * totSize);
-                        console.log(pc);
-			pBarSpan.style.width = pc + "px";
-                    }, false);
-
-                    attachRequest.onreadystatechange = function(e) {
-			if (attachRequest.readyState == 4 && attachRequest.status == 200) {
-                            if (attachRequest.response) {
-                                var responseObj = JSON.parse(attachRequest.response);
-                                if (responseObj.error) {
-                                    alert ('Errore in salvataggio file nella nota: ' + responseObj.error);
-                                    divUploads.removeChild(button);
-                                    saveDone = true;
-                                }
-                                else {
-                                    obj.feature.attributes.attach = responseObj.attachUrl;
-                                    saveDone = true;
-                                }
-                            }
-			}
-                    };
-
-                    saveDone = false;
-                    attachRequest.open('POST', ctrl.serviceURL);
-                    attachRequest.send(attachFormData);
-                });
-
-                document.getElementById("geonote_setlabel_button").addEventListener("click", function (evt) {
-                    if (!saveDone) {
-                        alert("Upload di un allegato in corso, attendere il completamento dell'operazione");
-                        return;
-                    }
-
-                    obj.feature.attributes.label = document.getElementById("geonote_label_text").value;
-                    ctrl.redlineLayer.redraw();
-
-                    if(ctrl.popup)
-                    ctrl.map.removePopup(ctrl.popup);
-                    ctrl.popup.destroy();
-                    ctrl.popup = null;
-                });
-
-            }, false);
-
-            request.open('GET', ctrl.panelsUrl + 'geonote_label.html', true),
-            request.send();
-       }
     },
 
     featureModified: function(obj) {
+        obj.feature.attributes.color = this.redlineColorM;
+        if (obj.feature.attributes.attach) {
+            obj.feature.attributes.attach = this.updateQueryString(obj.feature.attributes.attach,{'color':this.redlineColorM.substring(1)});
+        }
         this.savedState = false;
     },
 
     styleFeature: function(obj) {
         this.savedState = false;
-        obj.feature.attributes.color = this.redlineColor;
+        if (obj.type == "beforefeaturemodified") {
+            this.noteColorPicker.setHex(obj.feature.attributes.color);
+        }
+        else {
+            obj.feature.attributes.color = this.redlineColor;
+        }
+        if (!obj.feature.attributes.labelxoff)
+            obj.feature.attributes.labelxoff = 0;
+        if (!obj.feature.attributes.labelyoff)
+            obj.feature.attributes.labelyoff = 12;
         if (!obj.feature.attributes.label)
             obj.feature.attributes.label = '';
         if (!obj.feature.attributes.attach)
             obj.feature.attributes.attach = '';
-    },
+        if (!obj.feature.attributes.attachsize)
+            obj.feature.attributes.attachsize = 16;
+        if (!obj.feature.attributes.symbol)
+            obj.feature.attributes.symbol = 'circle';
+        if (!obj.feature.attributes.radius)
+            obj.feature.attributes.radius = 2;
+        if (!obj.feature.attributes.strokewidth)
+            obj.feature.attributes.strokewidth = 1;
+        if (!obj.feature.attributes.dashstyle)
+            obj.feature.attributes.dashstyle = 'solid';
+        if (!obj.feature.attributes.fontsize)
+            obj.feature.attributes.fontsize = '12px';
+        if (!obj.feature.attributes.angle)
+            obj.feature.attributes.angle = 0;
+        obj.feature.attributes.resolution = this.map.getResolution();
 
-    addPopup: function(popupWidth, popupHeight, popupContent, oPopupPos) {
-        var oPopupPos;
-	var nReso = this.map.getResolution();
-
-        if (!oPopupPos) {
-            oPopupPos = new OpenLayers.LonLat(this.map.getExtent().getCenterPixel().x,this.map.getExtent().getCenterPixel().y);
-            oPopupPos.lon -= popupWidth/2 * nReso;
-            oPopupPos.lat += popupHeight/2 * nReso;
-        }
-
-        var popup = new OpenLayers.Popup.Anchored(
-                "geonote-popup",
-                oPopupPos,
-                new OpenLayers.Size(popupWidth,popupHeight),
-                '<div id="geonote-popup-content"></div>',
-                null, true);
-
-        //popup.closeOnMove = true;
-        var self=this;
-
-        popup.onclick = function(){
-            return false
-        };
-
-        popup.addCloseBox(function(e){
-                //Event.stop(e)
-                if(self.popup){
-                    this.map.removePopup(self.popup);
-                    self.popup.destroy();
-                    self.popup = null;
+        var configNodes = document.querySelectorAll('[data-geonote-attr]');
+        for (var i = 0; i < configNodes.length; i++) {
+            var confNode = configNodes[i];
+            var confAttr = confNode.getAttribute('data-geonote-attr');
+            if (confAttr == 'attach') {
+                obj.feature.attributes[confAttr] = confNode.value + '&color=' + this.redlineColor.substring(1) + '&size=' + obj.feature.attributes.attachsize;
+            }
+            else if (confAttr == 'radius') {
+                obj.feature.attributes[confAttr] = confNode.value;
+                obj.feature.attributes.labelyoff = parseFloat(obj.feature.attributes.labelyoff) + parseFloat(confNode.value);
+            }
+            else if (confAttr == 'orientation' && confNode.value) {
+                var lastFeature = null;
+                if (this.redlineLayer.features.length > 0) {
+                    lastFeature = this.redlineLayer.features[this.redlineLayer.features.length-1];
                 }
-
-                //self.activate();
-
-        });
-
-        if(self.popup)
-            self.map.removePopup(self.popup);
-            self.map.addPopup(popup);
-            self.popup = popup;
-
-        if (popupContent) {
-                document.getElementById("geonote-popup-content").innerHTML=popupContent;
-        };
+                if (lastFeature && lastFeature.style) {
+                    // **** Set angle for previous feature
+                    var dx = obj.feature.geometry.x - lastFeature.geometry.x;
+                    var dy = obj.feature.geometry.y - lastFeature.geometry.y;
+                    var angle = Math.atan2(dx,dy);
+                    var angle1 = Math.atan2(dy,dx);
+                    angle1 *= 180 / Math.PI;
+                    lastFeature.attributes.angle = angle*180/Math.PI-90;
+                    if (lastFeature.attributes.labelxoff || lastFeature.attributes.labelyoff) {
+                        var res = this.redlineLayer.map.getResolution();
+                        var xdist = lastFeature.attributes.labelxoff*res;
+                        var ydist = lastFeature.attributes.labelyoff*res;
+                        var offPoint = new OpenLayers.Geometry.Point(lastFeature.geometry.x+xdist,lastFeature.geometry.y+ydist);
+                        offPoint.rotate(angle1, lastFeature.geometry);
+                        lastFeature.attributes.labelxoff = (offPoint.x - lastFeature.geometry.x)/res;
+                        lastFeature.attributes.labelyoff = (offPoint.y - lastFeature.geometry.y)/res;
+                    }
+                    lastFeature.style = null;
+                    this.redlineLayer.redraw();
+                    return false;
+                }
+                else {
+                    var init_style = OpenLayers.Util.extend({}, OpenLayers.Feature.Vector.style.temporary);
+                    obj.feature.style = OpenLayers.Util.extend(init_style, this.redlineLayer.styleMap.styles.temporary.defaultStyle);
+                }
+            }
+            else {
+                obj.feature.attributes[confAttr] = confNode.value;
+            }
+        }
+        if (obj.feature.attributes.hasOwnProperty('quote_id')) {
+            var quotesArr = this.redlineLayer.getFeaturesByAttribute('quote_id',obj.feature.attributes['quote_id']);
+            for (var i=0; i<quotesArr.length; i++) {
+                if (quotesArr[i].attributes.hasOwnProperty('node')) {
+                    this.redlineLayer.destroyFeatures([quotesArr[i]]);
+                    //self.layer.drawFeature(quoteEndpoint);
+                }
+            }
+        }
     },
 
-    colorPicker: function () {
-        var self = this;
-
-        if (self.ctrl.popup) {
-            if (document.getElementById('geonote_color-picker')) {
-                self.ctrl.map.removePopup(self.ctrl.popup);
-                self.ctrl.popup.destroy();
-                self.ctrl.popup = null;
-                return;
+    getSnapFeatures: function(obj) {
+        var featureTypesArr = this.snapLayer.featureTypes;
+        if (!Array.isArray(featureTypesArr ) || featureTypesArr.length < 1) {
+            return;
+        }
+        this.snapLayer.destroyFeatures();
+        if (this.map.getScale() > this.snapMaxScale) {
+            return;
+        }
+        var queryLayers = [];
+        for (var j=0; j<featureTypesArr.length; j++) {
+            var layerTmp = null;
+            for (index in this.snapMapQuery.wfsCache){
+                for(var i=0;i<this.snapMapQuery.wfsCache[index].featureTypes.length;i++){
+                    if(this.snapMapQuery.wfsCache[index].featureTypes[i].typeName == featureTypesArr[j]) layerTmp = this.map.getLayer(index);
+                }
+            }
+            if (layerTmp && layerTmp.calculateInRange()) {
+                for (var k=0; k<queryLayers.length; k++) {
+                    if (queryLayers[k].id === layerTmp.id) break;
+                }
+                if (k == queryLayers.length) {
+                    queryLayers.push(layerTmp);
+                }
             }
         }
 
-        var popupWidth = 280;
-        var popupHeight = 280;
-        var nReso = this.map.getResolution();
-        var tmpClass = document.getElementsByClassName('jscolorItemInactive');
-        var colorPickerBtn = tmpClass[0];
-        var btnX = colorPickerBtn.getBoundingClientRect().left;
-        var btnY = document.getElementById(self.ctrl.div.id).getBoundingClientRect().bottom;
-        var oPopupPos = this.map.getLonLatFromPixel({x:btnX, y:btnY});
-        //oPopupPos.lon -= popupWidth/2 * nReso;
-        oPopupPos.lat += 25 * nReso;
+        if (queryLayers.length > 0) {
+            var loadingControl = GisClientMap.map.getControlsByClass('OpenLayers.Control.LoadingPanel')[0];
+            loadingControl.maximizeControl();
+            this.snapMapQuery.layers = queryLayers;
+            this.snapMapQuery.queryFeatureType = featureTypesArr.join(',');
+            this.snapMapQuery.activate();
+            this.snapMapQuery.select(this.map.getExtent().toGeometry());
+            this.snapMapQuery.deactivate();
+            loadingControl.minimizeControl();
+        }
+    },
 
-        var request = new XMLHttpRequest();
-        request.addEventListener("load", function(evt){
-            self.ctrl.addPopup(popupWidth, popupHeight, this.response, oPopupPos);
-            var tmpColor = null;
-            var noteColorPicker = ColorPicker(
-                document.getElementById('geonote_color-picker'),
+   noteSave: function () {
+       var toolsDiv = document.getElementById('geonote_panel_elem_options_note_manage');
+       toolsDiv.innerHTML = '<div class="geonote-popup-form">\
+           <div class="geonote-popup-form-group">\
+               <label for="geonote_note_name">Titolo Nota</label>\
+               <input type="text" class="form-control" id="geonote_note_name">\
+           </div>\
+       </div>\
+       <div class="geonote-popup-buttons">\
+           <a  id="geonote_save" class="olButton olControlItemInactive" title="Salva nota">\
+               <span>Salva nota</span>\
+           </a>\
+       </div>';
+       var self = this;
+       document.getElementById("geonote_note_name").value = self.ctrl.noteTitle;
+       document.getElementById("geonote_save").addEventListener("click", function (evt) {
+           var noteTitle = document.getElementById("geonote_note_name").value;
 
-                function(hex, hsv, rgb) {
-                document.getElementById("geonote_setcolor").style.backgroundColor = hex;
-                tmpColor = hex;
-                });
-            noteColorPicker.setHex(self.ctrl.redlineColor);
+           var reqParams = self.ctrl.redlineLayer.protocol.params;
 
-            document.getElementById("geonote_setcolor_button").addEventListener("click", function (evt) {
-                if (tmpColor) {
-                    self.ctrl.redlineColor = tmpColor;
-                    if(self.ctrl.popup) {
-                        self.ctrl.map.removePopup(self.ctrl.popup);
-                        self.ctrl.popup.destroy();
-                        self.ctrl.popup = null;
+
+            reqParams["TITLE"] = noteTitle;
+            reqParams["REQUEST"] = 'SaveLayer';
+            //self.ctrl.redlineLayer.protocol.params["SRS"] = self.ctrl.map.projection;
+            if (self.ctrl.noteID)
+                reqParams["REDLINEID"] = self.ctrl.noteID;
+            else
+                reqParams["REDLINEID"] = null;
+
+            var geojson_format = new OpenLayers.Format.GeoJSON();
+            reqParams.features = geojson_format.write(self.ctrl.redlineLayer.features);
+
+            var request = OpenLayers.Request.POST({
+                url: self.ctrl.serviceURL,
+                data: OpenLayers.Util.getParameterString(reqParams),
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                callback: function(response) {
+                    var self = this;
+                    if(!response || typeof(response) != 'object' || !response.status || response.status != 200) {
+                        return alert('Errore di sistema');
                     }
-                }
+
+                    if (!response.responseText) {
+                            return alert('Errore di sistema, impossibile accedere alle note salvate');
+                    }
+
+                    var responseObj = JSON.parse(response.responseText);
+
+                    if (responseObj.error) {
+                        alert('Errore in salvataggio nota:' + responseObj.error);
+                        this.savedState = false;
+                        return;
+                    }
+
+                    this.noteTitle = responseObj.redlineTitle;
+                    this.noteID = responseObj.redlineId;
+                    this.savedState = true;
+
+                    this.noteLoader(this.noteID);
+                },
+                scope: self.ctrl
             });
 
         }, false);
-
-        request.open('GET', self.ctrl.panelsUrl + 'geonote_colorpicker.html', true),
-        request.send();
-   },
-
-   noteSave: function () {
-        var self = this;
-
-        self.map.currentControl.deactivate();
-        self.map.currentControl=self.map.defaultControl;
-
-        if (self.ctrl.popup) {
-            if (document.getElementById('geonote_note_name')) {
-                self.ctrl.map.removePopup(self.ctrl.popup);
-                self.ctrl.popup.destroy();
-                self.ctrl.popup = null;
-                return;
-            }
-        }
-
-        var request = new XMLHttpRequest();
-            request.addEventListener("load", function(evt){
-                self.ctrl.addPopup(200, 200, this.response);
-
-                document.getElementById("geonote_note_name").value = self.ctrl.noteTitle;
-
-                document.getElementById("geonote_save").addEventListener("click", function (evt) {
-                    var noteTitle = document.getElementById("geonote_note_name").value;
-
-                    var reqParams = self.ctrl.redlineLayer.protocol.params;
-
-
-                    reqParams["TITLE"] = noteTitle;
-                    reqParams["REQUEST"] = 'SaveLayer';
-                    //self.ctrl.redlineLayer.protocol.params["SRS"] = self.ctrl.map.projection;
-                    if (self.ctrl.noteID)
-                        reqParams["REDLINEID"] = self.ctrl.noteID;
-                    else
-                        reqParams["REDLINEID"] = null;
-
-                    var geojson_format = new OpenLayers.Format.GeoJSON();
-                    reqParams.features = geojson_format.write(self.ctrl.redlineLayer.features);
-
-                    var request = OpenLayers.Request.POST({
-                        url: self.ctrl.serviceURL,
-                        data: OpenLayers.Util.getParameterString(reqParams),
-                        headers: {
-                            "Content-Type": "application/x-www-form-urlencoded"
-                        },
-                        callback: function(response) {
-                            var self = this;
-                            if(!response || typeof(response) != 'object' || !response.status || response.status != 200) {
-                                return alert('Errore di sistema');
-                            }
-
-                            if (!response.responseText) {
-                                    return alert('Errore di sistema, impossibile accedere alle note salvate');
-                            }
-
-                            var responseObj = JSON.parse(response.responseText);
-
-                            if (responseObj.error) {
-                                alert('Errore in salvataggio nota:' + responseObj.error);
-                                this.savedState = false;
-                            }
-
-                            this.noteTitle = responseObj.redlineTitle;
-                            this.noteID = responseObj.redlineId;
-                            this.savedState = true;
-
-                            this.noteLoader(this.noteID);
-
-                            this.redraw();
-                            if(this.popup) {
-                                this.map.removePopup(this.popup);
-                                this.popup.destroy();
-                                this.popup = null;
-                            }
-                        },
-                        scope: self.ctrl
-                    });
-                });
-
-            }, false);
-
-        request.open('GET', self.ctrl.panelsUrl + 'geonote_save.html', true),
-        request.send();
    },
 
    saveSuccess: function (response) {
@@ -711,21 +1690,22 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
 
     },
 
-
     noteLoad: function(redlineID) {
+        var toolsDiv = document.getElementById('geonote_panel_elem_options_note_manage');
+        toolsDiv.innerHTML = '<div class="geonote-popup-form">\
+            <div class="geonote-popup-form-group">\
+                <label for="geonote_note_list">Carica Nota</label>\
+                <select size="4" class="form-control" id="geonote_note_list"></select>\
+            </div>\
+        </div>\
+        <div class="geonote-popup-buttons">\
+        <a  id="geonote_load" class="olButton olControlItemInactive" title="Carica nota">\
+            <span>Carica nota</span>\
+        </a>';
         var self = this;
 
         self.map.currentControl.deactivate();
         self.map.currentControl=self.map.defaultControl;
-
-        if (self.ctrl.popup) {
-            if (document.getElementById('geonote_note_name')) {
-                self.ctrl.map.removePopup(self.ctrl.popup);
-                self.ctrl.popup.destroy();
-                self.ctrl.popup = null;
-                return;
-            }
-        }
 
         var params = {
             PROJECT: self.ctrl.redlineLayer.protocol.params['PROJECT'],
@@ -751,62 +1731,48 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
 
                 var responseObj = JSON.parse(response.responseText);
 
-                if (responseObj.layers)
-                    self.ctrl.notesList = responseObj.layers;
-
-                var request = new XMLHttpRequest();
-                request.addEventListener("load", function(evt){
-                    self.ctrl.addPopup(200, 200, this.response);
-
-                    for (var i=0; i < self.ctrl.notesList.length; i++){
+                if (responseObj.layers) {
+                    for (var i=0; i < responseObj.layers.length; i++){
                         var noteOpt = document.createElement( 'option' );
-                        noteOpt.value = self.ctrl.notesList[i].redline_id;
-                        noteOpt.text = self.ctrl.notesList[i].redline_title;
+                        noteOpt.value = responseObj.layers[i].redline_id;
+                        noteOpt.text = responseObj.layers[i].redline_title;
                         document.getElementById("geonote_note_list").add(noteOpt);
+                        this.ctrl.noteList[responseObj.layers[i].redline_id] = {
+                            title : responseObj.layers[i].redline_title,
+                            status :  responseObj.layers[i].redline_status
+                        }
                     }
+                }
 
-                    document.getElementById("geonote_load").addEventListener("click", function (evt) {
-
-                        if (!self.ctrl.savedState && self.ctrl.redlineLayer.features.length > 0) {
-                            if (!confirm('Alcuni elementi della nota corrente non sono stati salvati\nSe si procede con il caricamento andranno persi. Continuare?')) {
-                                if(self.ctrl.popup) {
-                                    self.ctrl.map.removePopup(self.ctrl.popup);
-                                    self.ctrl.popup.destroy();
-                                    self.ctrl.popup = null;
-                                }
-                                return;
-                            }
-                        }
-                        var redlineList = document.getElementById("geonote_note_list");
-                        var redlineID = redlineList.value;
-
-                        if (!redlineID)
+                document.getElementById("geonote_load").addEventListener("click", function (evt) {
+                    if (!self.ctrl.savedState && self.ctrl.redlineLayer.features.length > 0) {
+                        if (!confirm('Alcuni elementi della nota corrente non sono stati salvati\nSe si procede con il caricamento andranno persi. Continuare?')) {
                             return;
-
-                        var redlineTitle = redlineList.options[redlineList.selectedIndex].innerHTML;
-
-                        self.ctrl.noteTitle = redlineTitle;
-                        self.ctrl.noteID = redlineID;
-                        self.ctrl.redraw();
-
-                        self.ctrl.noteLoader(redlineID);
-
-                        if(self.ctrl.popup) {
-                            self.ctrl.map.removePopup(self.ctrl.popup);
-                            self.ctrl.popup.destroy();
-                            self.ctrl.popup = null;
                         }
-                    });
+                    }
+                    var redlineList = document.getElementById("geonote_note_list");
+                    var redlineID = redlineList.value;
 
-                }, false);
+                    if (!redlineID)
+                        return;
 
-                request.open('GET', self.ctrl.panelsUrl + 'geonote_load.html', true),
-                request.send();
+                    var redlineTitle = redlineList.options[redlineList.selectedIndex].innerHTML;
+
+                    self.ctrl.noteTitle = redlineTitle;
+                    self.ctrl.noteID = redlineID;
+                    self.ctrl.redraw();
+
+                    self.ctrl.noteLoader(redlineID);
+
+                    if(self.ctrl.popup) {
+                        self.ctrl.map.removePopup(self.ctrl.popup);
+                        self.ctrl.popup.destroy();
+                        self.ctrl.popup = null;
+                    }
+                });
             },
             scope: this
         });
-
-
     },
 
     noteLoader: function(redlineID) {
@@ -815,13 +1781,14 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
         this.redlineLayer.protocol.params["REQUEST"] = 'GetLayer';
         this.redlineLayer.protocol.params["REDLINEID"] = redlineID;
         this.redlineLayer.strategies[1].load();
-
+        var toolsDiv = document.getElementById('geonote_panel_elem_options_note_manage');
+        toolsDiv.innerHTML = '';
     },
 
     noteLoaded: function(obj) {
         if (obj.response.priv.status != 200) {
             alert ("Caricamento nota fallito");
-            this.noteTitle = 'Nota senza nome';
+            this.noteTitle = this.noteDefaultTitle;
             this.noteID = null;
             this.savedState = false;
             this.loading = false;
@@ -835,6 +1802,8 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
     },
 
     noteDelete: function() {
+        var toolsDiv = document.getElementById('geonote_panel_elem_options_note_manage');
+        toolsDiv.innerHTML = '';
         if (this.ctrl.redlineLayer.features.length == 0)
             return;
 
@@ -889,14 +1858,43 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
             }
         }
         this.ctrl.noteReset();
+        var toolsDiv = document.getElementById('geonote_panel_elem_options_note_manage');
+        toolsDiv.innerHTML = '';
     },
 
     noteReset: function () {
         this.redlineLayer.removeAllFeatures();
-        this.noteTitle = 'Nota senza nome';
+        this.noteTitle = this.noteDefaultTitle;
         this.noteID = null;
         this.savedState = false;
         this.redraw();
+    },
+
+    parseQueryString: function(url) {
+        var match,
+            pl     = /\+/g,  // Regex for replacing addition symbol with a space
+            search = /([^&=]+)=?([^&]*)/g,
+            decode = function (s) { return decodeURIComponent(s.replace(pl, " ")); },
+            query  = url.split('?')[1];
+
+        var urlParams = {};
+        while (match = search.exec(query))
+            urlParams[decode(match[1])] = decode(match[2]);
+
+        return urlParams;
+    },
+
+    updateQueryString: function(url, updateItems) {
+        var queryStringItems = this.parseQueryString(url);
+        for (var item in updateItems) {
+            queryStringItems[item] = updateItems[item];
+        };
+
+        var newUrl = url.split('?')[0] + '?';
+        for (var item in queryStringItems) {
+            newUrl += item + '=' + queryStringItems[item] + '&';
+        };
+        return newUrl;
     }
 
  });

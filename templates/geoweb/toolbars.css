@@ -160,41 +160,6 @@ div.olMapViewport {
 
 }
 
-.map-layout  #map-toolbars-edit .olInfoBar .spanHeader {
-    background-color: rgba(0, 0, 0, 0.7) !important;
-    -webkit-border-bottom-left-radius: 6px;
-    -webkit-border-top-left-radius: 6px;
-    -moz-border-radius-bottomleft: 6px;
-    -moz-border-radius-topleft: 6px;
-    border-bottom-left-radius: 6px;
-    border-top-left-radius: 6px;
-    padding-left: 6px;
-    padding-right: 6px;
-    padding-top: 2px;
-    padding-bottom: 2px;
-    color: #FFFFFF;
-    margin-top: 4px;
-    margin-bottom: 4x;
-}
-
-
-.map-layout  #map-toolbars-edit .olInfoBar .spanTitle {
-    background-color: rgba(0, 0, 0, 0.6) !important;
-    -webkit-border-bottom-right-radius: 6px;
-    -webkit-border-top-right-radius: 6px;
-    -moz-border-radius-bottomright: 6px;
-    -moz-border-radius-topright: 6px;
-    border-bottom-right-radius: 6px;
-    border-top-right-radius: 6px;
-    padding-left: 6px;
-    padding-right: 6px;
-    padding-top: 2px;
-    padding-bottom: 2px;
-    color: #FFFFFF;
-    margin-right: 10px;
-    margin-top: 4px;
-    margin-bottom: 4x;
-}
 
 .map-layout  #map-toolbars-edit .olToolbarsControl .olButton span, .olLikeButton span {
     color: #FFFFFF;
@@ -211,18 +176,12 @@ div.olMapViewport {
 }
 
 #geonote-popup {
-    background-color: rgba(0, 0, 0, 0.3) !important;
+    background-color: rgba(0, 0, 0, 0.6) !important;
+    border-radius: 8px;
+    background-clip: padding-box;
 }
 
-#geonote-popup #geonote-popup-content {
-    position: asolute;
-    top: 0px;
-    left: 0px;
-    bottom: 0px;
-    right: 0px;
-}
-
-#geonote-popup #geonote-popup-content .geonote-popup-toolbar {
+#geonote-popup .geonote-popup-content .geonote-popup-toolbar {
     position: absolute;
     top: 0px;
     left: 2px;
@@ -233,15 +192,15 @@ div.olMapViewport {
     border-radius: 6px;
 }
 
-#geonote-popup #geonote-popup-content .geonote-popup-form {
+#geonote-popup .geonote-popup-content {
+    color: #FFFFFF;
     position: absolute;
-    top: 40px;
+    top: 30px;
     left: 2px;
     margin:2px;
 }
 
-#geonote-popup #geonote-popup-content .geonote-popup-buttons {
-    position: absolute;
+#geonote-popup .geonote-popup-content .geonote-popup-buttons {
     bottom: 0px;
     left: 2px;
     background-color: rgba(0, 0, 0, 0.4);
@@ -251,10 +210,11 @@ div.olMapViewport {
     border-radius: 6px;
 }
 
-#geonote-popup #geonote-popup-content .geonote-popup-buttons .geonote-popup-btn {
+#geonote-popup .geonote-popup-content .geonote-popup-buttons .geonote-popup-btn {
     background-color: rgba(0, 0, 0, 0.3);
     cursor: pointer;
-    display: inline-block;
+    display: flow-root;
+    float: left;
     outline: medium none;
     text-decoration: none;
     margin:4px 2px 4px 4px;
@@ -264,7 +224,7 @@ div.olMapViewport {
     border-radius: 4px;
 }
 
-#geonote-popup #geonote-popup-content .geonote-popup-buttons .geonote-popup-btn span {
+#geonote-popup .geonote-popup-content .geonote-popup-buttons .geonote-popup-btn span {
     color: #FFFFFF;
     margin-left: 3px;
 }
@@ -292,6 +252,193 @@ div.olMapViewport {
     background-color: rgba(0, 0, 0, 0.3)!important;
     color: #FFFFFF;
     margin-left: 3px;
+}
+
+/*
+    **** V2
+*/
+
+#map-toolbar-redline {
+    width: 296px;
+}
+
+.map-layout  #map-toolbar-redline .olButton{
+    padding-left: 13px !important;
+    padding-right: 13px !important;
+}
+
+.map-layout  #geonote_panel_main .olButton{
+    padding-top: 2px !important;
+    padding-right: 4px !important;
+    padding-bottom: 0px !important;
+    padding-left: 4px !important;
+}
+
+.geonote_panel_elem {
+    display: none;
+    text-align: center;
+    color: #FFFFFF;
+    padding: 5px;
+}
+
+.geonote_panel_elem_show {
+    display: block !important;
+}
+
+.geonote_panel_elem a,a:hover{
+    color: #FFFFFF !important;
+}
+
+.geonote_panel_elem_options div {
+    display: flow-root;
+}
+
+.geonote_panel_elem_options span.geonote_options_header {
+    padding-top: 11px;
+    float: left;
+}
+.geonote_panel_elem_options span.geonote_symbol_label {
+    font-size: 11px;
+}
+
+
+.geonote_panel_elem_options span.geonote_options_content {
+    float: right;
+}
+
+.geonote_panel_elem_options .olButton, .olLikeButton {
+    padding: 4px 8px 5px 8px !important;
+}
+
+*::-ms-backdrop,.geonote_panel_elem_content div {
+    display: table;
+    width: 410px;
+}
+
+.geonote_panel_elem_header {
+    margin-bottom: : 5px;
+}
+
+.geonote_panel_elem span.icon-hide-panel {
+    float: left;
+    display: inline-block;
+    color: #FFFFFF;
+    width: 14px;
+    height: 14px;
+    margin-top: 1px;
+    margin-right:5px;
+    line-height: 14px;
+    vertical-align: text-top;
+    background-image: url("../../resources/img/glyphicons-halflings-white.png");
+    background-repeat: no-repeat;
+    background-position: -312px -120px;
+    overflow: hidden;
+    text-indent: -9999px;
+}
+
+.geonote_panel_elem span.icon-show-panel {
+    float: left;
+    display: inline-block;
+    color: #FFFFFF;
+    width: 14px;
+    height: 14px;
+    margin-top: 1px;
+    margin-right:5px;
+    line-height: 14px;
+    vertical-align: text-top;
+    background-image: url("../../resources/img/glyphicons-halflings-white.png");
+    background-repeat: no-repeat;
+    background-position: -456px -72px;
+    overflow: hidden;
+    text-indent: -9999px;
+}
+
+.geonote_colorpicker_display {
+    display: inline-block;
+    width: 40px;
+}
+
+#geonote_colorpicker {
+    margin: 11px;
+}
+
+.tableSelectorHeader {
+    background: #FFFFFF;
+    border: 3px solid black;
+    padding: 3px;
+}
+
+.tableSelectorRow {
+    background: #FFFFFF;
+    border: 1px solid black;
+    padding: 1px;
+}
+
+.tableSelectorRowS {
+    background: #c1bbc1;
+}
+
+.map-layout  #map-toolbars-redline #geonote_panel_note_title{
+    display: flow-root;
+}
+
+.map-layout  #map-toolbar-redline .spanHeader {
+    background-color: rgba(0, 0, 0, 0.7) !important;
+    -webkit-border-bottom-left-radius: 6px;
+    -webkit-border-top-left-radius: 6px;
+    -moz-border-radius-bottomleft: 6px;
+    -moz-border-radius-topleft: 6px;
+    border-bottom-left-radius: 6px;
+    border-top-left-radius: 6px;
+    padding-left: 6px;
+    padding-right: 6px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    color: #FFFFFF;
+    margin-top: 4px;
+    margin-bottom: 4x;
+    float: left;
+    width: 45%;
+}
+
+
+.map-layout  #map-toolbar-redline .spanTitle {
+    background-color: rgba(0, 0, 0, 0.6) !important;
+    -webkit-border-bottom-right-radius: 6px;
+    -webkit-border-top-right-radius: 6px;
+    -moz-border-radius-bottomright: 6px;
+    -moz-border-radius-topright: 6px;
+    border-bottom-right-radius: 6px;
+    border-top-right-radius: 6px;
+    padding-left: 6px;
+    padding-right: 6px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    color: #FFFFFF;
+    margin-top: 4px;
+    margin-bottom: 4x;
+    float: right;
+    width: 55%;
+    text-wrap: nowrap;
+}
+
+.geonote_popup_modal_background {
+    top: 0%;
+    left: 0%;
+    width: 100vw;
+    height: 100vh;
+    position: absolute;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.geonote_popup_modal_popup {
+    top: 50%;
+    left: 50%;
+    width: 200px;
+    height: 200px;
+    position: absolute;
+    transform: translate(-50%, -50%);
+    z-index: 1500;
 }
 
 /*

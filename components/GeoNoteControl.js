@@ -3,14 +3,13 @@ window.GCComponents["Controls"].addControl('control-redline', function(map){
         return new OpenLayers.GisClient.geoNoteToolbar({
         gc_id: 'control-redline',
         baseUrl: GisClientMap.baseUrl,
-        panelsUrl: GisClientMap.rootPath + 'panels/',
         createControlMarkup:customCreateControlMarkup,
         div:document.getElementById("map-toolbar-redline"),
         autoActivate:false,
         saveState:true,
-        divdrawbtns: "map-toolbar-redline-draw",
-        divopsgbtns: "map-toolbar-redline-opsg",
-        divopsnbtns: "map-toolbar-redline-opsn"
+        symbolFontFiles: (clientConfig.GEONOTE_SYMBOL_MAP.hasOwnProperty(GisClientMap.mapsetName)?clientConfig.GEONOTE_SYMBOL_MAP[GisClientMap.mapsetName]:[]),
+        redlineColor: clientConfig.GEONOTE_COLOR,
+        redlineColorM: clientConfig.GEONOTE_COLOR
     });
 });
 
