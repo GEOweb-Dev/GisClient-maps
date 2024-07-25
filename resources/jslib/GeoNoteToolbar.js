@@ -19,7 +19,7 @@
      resetVertices: function() {
          if(this.feature && this.feature.geometry.CLASS_NAME == "OpenLayers.Geometry.LineString") {
              if((this.mode && (this.mode == OpenLayers.Control.ModifyFeature.RESHAPE || this.mode == OpenLayers.Control.ModifyFeature.RESIZE || this.mode == OpenLayers.Control.ModifyFeature.DRAG))) {
-                 if (this.feature.attributes.hasOwnProperty('quote_id')) {
+                 if (this.feature.attributes.quote_id) {
                      alert ('Operazione non valida su oggetti di tipo quota');
                      this.unselectFeature(this.feature);
                      this.deactivate();
@@ -40,7 +40,7 @@
 
      unselectFeature: function(feature) {
          OpenLayers.Control.ModifyFeature.prototype.unselectFeature.apply(this, arguments);
-         if (feature.attributes.hasOwnProperty('quote_id')) {
+         if (feature.attributes.quote_id) {
             var quoteArr = new Array();
             var ptArr = feature.geometry.getVertices();
             var pointAngle = feature.attributes.angle + 270;
@@ -509,7 +509,6 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                                 htmlText += '<input type="hidden" value="1" class="form-control"  id="geonote_orientation_text" data-geonote-attr="orientation">';
                                 htmlText += '<div><span class="geonote_options_header">Dimensione punto</span><span class="geonote_options_content">';
                                 htmlText += '<select class="form-control" id="geonote_radius_text" data-geonote-attr="radius">';
-                                htmlText += '<option value="0">Nascosto</option>';
                                 for (var i=1; i<=20;i++) {
                                     htmlText += '<option value="'+i+'">'+i+'</option>';
                                 }
@@ -534,6 +533,11 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                                     orBtn.classList.remove('olControlItemActive');
                                     orBtn.classList.add('olControlItemInactive');
                                     document.getElementById('geonote_orientation_text').setAttribute('value',"");
+                                    var redlineLayer = GisClientMap.map.getLayersByName('Redline')[0];
+                                    if (redlineLayer.features.length > 0) {
+                                        redlineLayer.features[redlineLayer.features.length-1].style = null;
+                                        redlineLayer.redraw();
+                                    }
                                 });
                             },
                             'deactivate': function() {
@@ -655,6 +659,11 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                                                 orBtn.classList.remove('olControlItemActive');
                                                 orBtn.classList.add('olControlItemInactive');
                                                 document.getElementById('geonote_orientation_text').setAttribute('value',"");
+                                                var redlineLayer = GisClientMap.map.getLayersByName('Redline')[0];
+                                                if (redlineLayer.features.length > 0) {
+                                                    redlineLayer.features[redlineLayer.features.length-1].style = null;
+                                                    redlineLayer.redraw();
+                                                }
                                             });
                                         }
                                     }
@@ -1438,7 +1447,8 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
             if (!featObj.attributes.radius) {
                 featObj.attributes.radius = 0;
             }
-            if (featObj.attributes.hasOwnProperty('quote_id') && featObj.geometry.CLASS_NAME == "OpenLayers.Geometry.LineString") {
+            if (featObj.attributes.quote_id && featObj.geometry.CLASS_NAME == "OpenLayers.Geometry.LineString") {
+                debugger;
                 if (!featObj.attributes.hasOwnProperty('centroid')) {
                     var ptArr = featObj.geometry.getVertices();
                     var dx = ptArr[1].x-ptArr[0].x;
@@ -1563,7 +1573,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                 obj.feature.attributes[confAttr] = confNode.value;
             }
         }
-        if (obj.feature.attributes.hasOwnProperty('quote_id')) {
+        if (obj.feature.attributes.quote_id) {
             var quotesArr = this.redlineLayer.getFeaturesByAttribute('quote_id',obj.feature.attributes['quote_id']);
             for (var i=0; i<quotesArr.length; i++) {
                 if (quotesArr[i].attributes.hasOwnProperty('node')) {
@@ -1671,6 +1681,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
 
                     this.noteTitle = responseObj.redlineTitle;
                     this.noteID = responseObj.redlineId;
+                    this.redraw();
                     this.savedState = true;
 
                     this.noteLoader(this.noteID);
