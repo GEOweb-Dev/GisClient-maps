@@ -396,6 +396,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                 deactivateAfterSelect: true,
                 vectorFeaturesOverLimit: new Array(),
                 resultLayer:this.snapLayer,
+                deactivateAfterSelect: false,
                 eventListeners: {
                     'activate': function(){
                     },
