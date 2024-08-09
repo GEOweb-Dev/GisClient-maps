@@ -289,6 +289,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
             labelAlign: "cm",
             labelXOffset: '${labelxoff}',
             labelYOffset: '${labelyoff}',
+            labelSelect: true,
             fillColor: '${color}',
             strokeColor: '${color}',
             strokeWidth: '${strokewidth}',
@@ -388,21 +389,26 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
         this.snapMapQuery = new OpenLayers.Control.QueryMap(
             OpenLayers.Handler.Polygon,
             {
+                ctrl: this,
                 gc_id: 'control-geonote-snap-query',
                 baseUrl: GisClientMap.baseUrl,
                 maxFeatures:10000,
                 maxVectorFeatures: 10000,
                 wfsCache: new Array(),
-                deactivateAfterSelect: true,
+                deactivateAfterSelect: false,
                 vectorFeaturesOverLimit: new Array(),
                 resultLayer:this.snapLayer,
-                deactivateAfterSelect: false,
+                busy: false,
                 eventListeners: {
                     'activate': function(){
                     },
                     'endQueryMap': function(event) {
                         var loadingControl = GisClientMap.map.getControlsByClass('OpenLayers.Control.LoadingPanel')[0];
                         loadingControl.minimizeControl();
+                        this.busy = false;
+                        if (this.snapExtent != this.map.getExtent().toString()) {
+                            this.ctrl.getSnapFeatures();
+                        }
                     }
                 }
             }
@@ -510,6 +516,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                                 htmlText += '<input type="hidden" value="1" class="form-control"  id="geonote_orientation_text" data-geonote-attr="orientation">';
                                 htmlText += '<div><span class="geonote_options_header">Dimensione punto</span><span class="geonote_options_content">';
                                 htmlText += '<select class="form-control" id="geonote_radius_text" data-geonote-attr="radius">';
+                                htmlText += '<option value="0">Nascosto</option>';
                                 for (var i=1; i<=20;i++) {
                                     htmlText += '<option value="'+i+'">'+i+'</option>';
                                 }
@@ -1266,7 +1273,8 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                 panelElementDiv.classList.add(panelClass);
             }
             else {
-                panelElementDiv.classList.add(...panelClass);
+                //panelElementDiv.classList.add(...panelClass);
+                panelElementDiv.classList.add.apply(panelElementDiv.classList, panelClass);
             }
         }
         var panelHeaderDiv = document.createElement("div");
@@ -1612,15 +1620,19 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
             }
         }
 
-        if (queryLayers.length > 0) {
+        var snapExtent = this.map.getExtent();
+        this.snapMapQuery.snapExtent = snapExtent.toString();
+
+        if (queryLayers.length > 0 && !this.snapMapQuery.busy) {
+            this.snapMapQuery.busy = true;
             var loadingControl = GisClientMap.map.getControlsByClass('OpenLayers.Control.LoadingPanel')[0];
             loadingControl.maximizeControl();
             this.snapMapQuery.layers = queryLayers;
             this.snapMapQuery.queryFeatureType = featureTypesArr.join(',');
             this.snapMapQuery.activate();
-            this.snapMapQuery.select(this.map.getExtent().toGeometry());
+            this.snapMapQuery.select(snapExtent.toGeometry());
             this.snapMapQuery.deactivate();
-            loadingControl.minimizeControl();
+            //loadingControl.minimizeControl();
         }
     },
 
