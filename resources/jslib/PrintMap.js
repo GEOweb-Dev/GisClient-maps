@@ -279,62 +279,44 @@ OpenLayers.Control.PrintMap = OpenLayers.Class(OpenLayers.Control, {
                     // **** Use a parametric SDL ad hoc in Gisclient
                     // **** to render dynamic styles on vectors
                     var currentStyle = layer.styleMap.styles[layer.features[i].renderIntent].defaultStyle;
-                    var featFillColor, featStrokeColor, featLabel;
-
-                    // **** fillcolor
-                    if (typeof(currentStyle.fillColor) != 'undefined') {
-                        if (currentStyle.fillColor.match(/#[0-9a-f]{6,8}/i) !== null) {
-                            featFillColor = currentStyle.fillColor;
-                        }
-                        else if (currentStyle.fillColor.match(/^\$\{.*\}$/) !== null) {
-                            var attrName = currentStyle.fillColor.substring(2, currentStyle.fillColor.length-1);
-                            featFillColor = layer.features[i].attributes[attrName];
-                        }
-                        else {
-                            // **** Javscript color
-                            var ctx = document.createElement('canvas').getContext('2d');
-                            ctx.fillStyle = currentStyle.fillColor;
-                            featFillColor = ctx.fillStyle;
-                        }
-                    };
-
-                    // **** strokecolor
-                    if (typeof(currentStyle.strokeColor) != 'undefined') {
-                        if (currentStyle.strokeColor.match(/#[0-9a-f]{6,8}/i) !== null) {
-                            featStrokeColor = currentStyle.strokeColor;
-                        }
-                        else if (currentStyle.strokeColor.match(/^\$\{.*\}$/) !== null) {
-                            var attrName = currentStyle.strokeColor.substring(2, currentStyle.strokeColor.length-1);
-                            featStrokeColor = layer.features[i].attributes[attrName];
-                        }
-                        else {
-                            // **** Javscript color
-                            var ctx = document.createElement('canvas').getContext('2d');
-                            ctx.fillStyle = currentStyle.strokeColor;
-                            featStrokeColor = ctx.fillStyle;
-                        }
-                    };
-
-                    // **** label
-                    if (typeof(currentStyle.label) != 'undefined') {
-                        if (currentStyle.label.match(/^\$\{.*\}$/) !== null) {
-                            var attrName = currentStyle.label.substring(2, currentStyle.label.length-1);
-                            featLabel = layer.features[i].attributes[attrName];
-                        }
-                        else {
-                            featLabel = currentStyle.label;
-                        }
-                    };
 
                     vector = {
                         type: typeGeom,
                         geometry: txtGeom,
-                        fillcolor: typeof(featFillColor)!='undefined'?featFillColor:null,
-                        fillcolor_opacity: typeof(currentStyle.fillOpacity)!='undefined'?currentStyle.fillOpacity*100:null,
-                        color: typeof(featStrokeColor)!='undefined'?featStrokeColor:null,
-                        color_opacity: typeof(currentStyle.strokeOpacity)!='undefined'?currentStyle.strokeOpacity*100:null,
-                        label: typeof(featLabel)!='undefined'?featLabel:null
                     };
+
+                    var styleFields = Object.keys(currentStyle);
+                    for (var k=0; k<styleFields.length; k++) {
+                        var styleField = styleFields[k];
+                        var styleContent = currentStyle[styleField];
+                        if (typeof styleContent === 'string' && styleContent.match(/^\$\{.*\}$/) !== null) {
+                            var attrName = styleContent.substring(2, styleContent.length-1);
+                            vector[styleField.toLowerCase()] = layer.features[i].attributes[attrName];
+                        }
+                        else {
+                            vector[styleField.toLowerCase()] = styleContent;
+                        }
+
+                        // **** Mapserver compatibility - Adjust some style values
+                        if (styleField.indexOf('Color') >= 0) {
+                            // **** Javscript color
+                            var ctx = document.createElement('canvas').getContext('2d');
+                            ctx.fillStyle = vector[styleField.toLowerCase()];
+                            vector[styleField.toLowerCase()] = ctx.fillStyle;
+                        }
+                        if (styleField.indexOf('Opacity') >= 0 && vector[styleField.toLowerCase()]) {
+                            vector[styleField.toLowerCase()] = vector[styleField.toLowerCase()]*100;
+                        }
+                        if (styleField == 'fontSize' && vector[styleField.toLowerCase()]) {
+                            vector[styleField.toLowerCase()] = (vector[styleField.toLowerCase()]).replace('px','');
+                        }
+                        if (styleField == 'externalGraphic' && vector[styleField.toLowerCase()] && (vector[styleField.toLowerCase()]).substring(0,4) != 'http') {
+                            vector[styleField.toLowerCase()] = window.location.origin + vector[styleField.toLowerCase()];
+                        }
+                        if (styleField == 'angle' || styleField == 'rotation') {
+                            vector[styleField.toLowerCase()] = 360-vector[styleField.toLowerCase()];
+                        }
+                    }
 
                     vectors.push(vector);
                 }
