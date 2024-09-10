@@ -198,8 +198,10 @@
 OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,{
     // **** baseUrl - Gisclient service URL
     baseUrl : '/gisclient3/',
+    config: {},
     redlineLayer : null,
     symbolFontFiles: [],
+    symbolArr: [],
     snapLayer : null,
     snapMapQuery: null,
     snapCtrl: null,
@@ -219,6 +221,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
     noteDefaultTitle: 'Nuova nota',
     savedState: false,
     loading: false,
+    userSettings: {},
 
     initialize: function(options) {
         OpenLayers.Control.Panel.prototype.initialize.apply(this, [options]);
@@ -571,112 +574,124 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                             'activate': function(){
                                 this.map.currentControl.deactivate();
                                 this.map.currentControl=this;
-                                var fontFiles = this.ctrl.symbolFontFiles;
-                                var pendingRequests = fontFiles.length;
+                                var baseUrl = this.ctrl.baseUrl;
                                 var toolsDiv = document.getElementById('geonote_panel_elem_options_create_point');
-                                var symbolArr = [];
-                                toolsDiv.style.height = '300px';
-                                toolsDiv.style.overflow = 'auto';
+                                var symbolArr = this.ctrl.symbolArr;
+                                var symbolFavArr = this.ctrl.config.symbols[this.map.config.mapsetName];
+                                var ctrl = this.ctrl;
                                 toolsDiv.innerHTML = '<div><span class="geonote_options_header">Disegna simbolo</span><span class="geonote_options_content">\
                                 <a id="geonote_label_orientation_disable" class="olButton olControlItemInactive">Semplice</a>\
                                 <a id="geonote_label_orientation_enable" class="olButton olControlItemActive">Orientato</a></span>';
+                                toolsDiv.innerHTML += '<div><span class="geonote_options_header">Visualizza simboli</span><span class="geonote_options_content">\
+                                <a id="geonote_symbol_show_all" class="olButton">Tutti</a>\
+                                <a id="geonote_symbol_show_fav" class="olButton">Preferiti</a></span>';
                                 toolsDiv.innerHTML += '<input type="hidden" value="" class="form-control" id="geonote_symbol_text" data-geonote-symbol="" data-geonote-attr="attach">';
                                 toolsDiv.innerHTML += '<input type="hidden" value="1" class="form-control"  id="geonote_orientation_text" data-geonote-attr="orientation">';
-                                for (var k=0; k<fontFiles.length; k++) {
-                                    OpenLayers.Request.GET({
-                                    url: this.ctrl.baseUrl + '/admin/ajax/dbList.php',
-                                    params: {
-                                        project: this.map.config.projectName,
-                                        prm_livello: 'style',
-                                        selectedField: 'symbol_name',
-                                        font_name: fontFiles[k]
-                                    },
-                                    scope: this,
-                                    callback: function(response, conf, url) {
-                                        var self = this;
-                                        if(!response || typeof(response) != 'object' || !response.status || response.status != 200) {
-                                            return alert('Errore di sistema');
+                                toolsDiv.innerHTML += '<div class="geonote_symbol_list" id="geonote_symbol_list_all"></div>';
+                                toolsDiv.innerHTML += '<div class="geonote_symbol_list" id="geonote_symbol_list_fav"></div>';
+                                var symbolListCtrl = document.getElementById("geonote_symbol_list_all");
+                                for (var i=0; i<this.ctrl.symbolArr.length; i++) {
+                                    symbolListCtrl.innerHTML += '<div><span class="geonote_options_header geonote_symbol_label">' + symbolArr[i] +
+                                    '</span><span class="geonote_options_content"><a id="geonote_symbol_btn_' + symbolArr[i] + '" data-geonote-symbol="' + symbolArr[i] + '" class="olButton olControlItemInactive"><img src="' +
+                                    baseUrl + '/admin/getImage.php?table=symbol&id=' + symbolArr[i] + '"></a></span><span class="geonote_options_content"><a id="geonote_symbol_fav_' + symbolArr[i] + '" data-geonote-symbol="' + symbolArr[i] + '" class="olButton glyphicon-white glyphicon-star-empty"></a></span></div>';
+                                }
+
+                                this.ctrl.setFavoriteSymbol();
+                                var symbolHCtrl = document.getElementById("geonote_symbol_text");
+
+                                var lstFullBtn = document.getElementById('geonote_symbol_show_all');
+                                lstFullBtn.addEventListener("click", function(evt) {
+                                    evt.currentTarget.classList.remove('olControlItemInactive');
+                                    evt.currentTarget.classList.add('olControlItemActive');
+                                    orBtn = document.getElementById('geonote_symbol_show_fav');
+                                    orBtn.classList.remove('olControlItemActive');
+                                    orBtn.classList.add('olControlItemInactive');
+                                    document.getElementById("geonote_symbol_list_all").style.display = 'flow-root';
+                                    document.getElementById("geonote_symbol_list_fav").style.display = 'none';
+                                });
+                                var lstFavBtn = document.getElementById('geonote_symbol_show_fav');
+                                lstFavBtn.addEventListener("click", function(evt) {
+                                    evt.currentTarget.classList.remove('olControlItemInactive');
+                                    evt.currentTarget.classList.add('olControlItemActive');
+                                    orBtn = document.getElementById('geonote_symbol_show_all');
+                                    orBtn.classList.remove('olControlItemActive');
+                                    orBtn.classList.add('olControlItemInactive');
+                                    document.getElementById("geonote_symbol_list_all").style.display = 'none';
+                                    document.getElementById("geonote_symbol_list_fav").style.display = 'flow-root';
+                                });
+
+                                if (symbolFavArr.length > 0) {
+                                    lstFavBtn.classList.add('olControlItemActive');
+                                    lstFullBtn.classList.add('olControlItemInactive');
+                                    document.getElementById("geonote_symbol_list_fav").style.display = 'flow-root';
+                                    symbolListCtrl.style.display = 'none';
+                                    symbolHCtrl.setAttribute('value', this.ctrl.baseUrl + '/admin/getImage.php?table=symbol&id=' + symbolFavArr[0] + '&transparency=1');
+                                    symbolHCtrl.setAttribute('data-geonote-symbol', symbolFavArr[0]);
+                                    var ctrlSel = document.getElementById('geonote_symbol_btn_fav_' + symbolFavArr[0]);
+                                    ctrlSel.classList.remove('olControlItemInactive');
+                                    ctrlSel.classList.add('olControlItemActive');
+                                }
+                                else {
+                                    lstFavBtn.classList.add('olControlItemInactive');
+                                    lstFullBtn.classList.add('olControlItemActive');
+                                    document.getElementById("geonote_symbol_list_fav").style.display = 'none';
+                                    symbolListCtrl.style.display = 'flow-root';
+                                    symbolHCtrl.setAttribute('value', this.ctrl.baseUrl + '/admin/getImage.php?table=symbol&id=' + symbolArr[0] + '&transparency=1');
+                                    symbolHCtrl.setAttribute('data-geonote-symbol', symbolArr[0]);
+                                    var ctrlSel = document.getElementById('geonote_symbol_btn_' + symbolArr[0]);
+                                    ctrlSel.classList.remove('olControlItemInactive');
+                                    ctrlSel.classList.add('olControlItemActive');
+                                }
+
+                                for (var i=0; i<symbolArr.length; i++) {
+                                    var symbolBtn = document.getElementById('geonote_symbol_btn_'+symbolArr[i]);
+                                    symbolBtn.addEventListener("click", function(evt) {
+                                        var symbolHCtrl = document.getElementById("geonote_symbol_text");
+                                        var symbolOld = symbolHCtrl.getAttribute('data-geonote-symbol');
+                                        var symbolNew = evt.currentTarget.getAttribute('data-geonote-symbol');
+                                        var ctrlOld = document.getElementById('geonote_symbol_btn_fav_' + symbolOld);
+                                        if (ctrlOld) {
+                                            ctrlOld.classList.remove('olControlItemActive');
+                                            ctrlOld.classList.add('olControlItemInactive');
                                         }
-
-                                        if (!response.responseText) {
-                                            return;
-                                        }
-
-                                        var responseObj = JSON.parse(response.responseText);
-
-                                        if (!responseObj.result || responseObj.result != 'ok') {
-                                            var errMessage = 'Errore in estrazione simboli da font';
-                                            if (responseObj.error)
-                                                errMessage += ' - Dettagli: ' + responseObj.error;
-                                            return alert (errMessage);
-                                        }
-                                        symbolArr = responseObj.data.concat(symbolArr);
-                                        pendingRequests--;
-                                        if (pendingRequests <= 0) {
-                                            var classEn = 'olControlItemActive';
-                                            var baseUrl = this.ctrl.baseUrl;
-                                            symbolArr.sort(function(a,b){
-                                                if (a.symbol < b.symbol) {
-                                                    return -1;
-                                                }
-                                                else if (a.symbol > b.symbol) {
-                                                    return 1;
-                                                }
-                                                return 0;
-                                            });
-                                            for (var i=0; i<symbolArr.length; i++) {
-                                                toolsDiv.innerHTML += '<div><span class="geonote_options_header geonote_symbol_label">' + symbolArr[i].symbol +
-                                                '</span><span class="geonote_options_content"><a id="geonote_symbol_btn_' + symbolArr[i].symbol + '" data-geonote-symbol="' + symbolArr[i].symbol + '" class="olButton ' + classEn + '"><img src="' +
-                                                baseUrl + '/admin/getImage.php?table=symbol&id=' + symbolArr[i].symbol + '"></a></span></div>';
-                                                classEn = 'olControlItemInactive';
-                                            }
-
-                                            var symbolHCtrl = document.getElementById("geonote_symbol_text");
-                                            symbolHCtrl.setAttribute('value', this.ctrl.baseUrl + '/admin/getImage.php?table=symbol&id=' + symbolArr[0].symbol + '&transparency=1');
-                                            symbolHCtrl.setAttribute('data-geonote-symbol', symbolArr[0].symbol);
-
-                                            for (var i=0; i<symbolArr.length; i++) {
-                                                var symbolBtn = document.getElementById('geonote_symbol_btn_'+symbolArr[i].symbol);
-                                                symbolBtn.addEventListener("click", function(evt) {
-                                                    var symbolHCtrl = document.getElementById("geonote_symbol_text");
-                                                    var symbolOld = symbolHCtrl.getAttribute('data-geonote-symbol');
-                                                    var symbolNew = evt.currentTarget.getAttribute('data-geonote-symbol');
-                                                    var ctrlOld = document.getElementById('geonote_symbol_btn_' + symbolOld);
-                                                    ctrlOld.classList.remove('olControlItemActive');
-                                                    ctrlOld.classList.add('olControlItemInactive');
-                                                    symbolHCtrl.setAttribute('value', baseUrl + '/admin/getImage.php?table=symbol&id=' + symbolNew + '&transparency=1');
-                                                    symbolHCtrl.setAttribute('data-geonote-symbol', symbolNew);
-                                                    evt.currentTarget.classList.remove('olControlItemInactive');
-                                                    evt.currentTarget.classList.add('olControlItemActive');
-                                                });
-                                            }
-                                            var orEnBtn = document.getElementById('geonote_label_orientation_enable');
-                                            orEnBtn.addEventListener("click", function(evt) {
-                                                evt.currentTarget.classList.remove('olControlItemInactive');
-                                                evt.currentTarget.classList.add('olControlItemActive');
-                                                orBtn = document.getElementById('geonote_label_orientation_disable');
-                                                orBtn.classList.remove('olControlItemActive');
-                                                orBtn.classList.add('olControlItemInactive');
-                                                document.getElementById('geonote_orientation_text').setAttribute('value',"1");
-                                            });
-                                            var orDisBtn = document.getElementById('geonote_label_orientation_disable');
-                                            orDisBtn.addEventListener("click", function(evt) {
-                                                evt.currentTarget.classList.remove('olControlItemInactive');
-                                                evt.currentTarget.classList.add('olControlItemActive');
-                                                orBtn = document.getElementById('geonote_label_orientation_enable');
-                                                orBtn.classList.remove('olControlItemActive');
-                                                orBtn.classList.add('olControlItemInactive');
-                                                document.getElementById('geonote_orientation_text').setAttribute('value',"");
-                                                var redlineLayer = GisClientMap.map.getLayersByName('Redline')[0];
-                                                if (redlineLayer.features.length > 0) {
-                                                    redlineLayer.features[redlineLayer.features.length-1].style = null;
-                                                    redlineLayer.redraw();
-                                                }
-                                            });
-                                        }
+                                        ctrlOld = document.getElementById('geonote_symbol_btn_' + symbolOld);
+                                        ctrlOld.classList.remove('olControlItemActive');
+                                        ctrlOld.classList.add('olControlItemInactive');
+                                        symbolHCtrl.setAttribute('value', baseUrl + '/admin/getImage.php?table=symbol&id=' + symbolNew + '&transparency=1');
+                                        symbolHCtrl.setAttribute('data-geonote-symbol', symbolNew);
+                                        evt.currentTarget.classList.remove('olControlItemInactive');
+                                        evt.currentTarget.classList.add('olControlItemActive');
+                                    });
+                                    var symbolFav = document.getElementById('geonote_symbol_fav_'+symbolArr[i]);
+                                    symbolFav.addEventListener("click", function(evt) {
+                                        var symbolNew = evt.currentTarget.getAttribute('data-geonote-symbol');
+                                        var redlineCtrl = GisClientMap.map.getControlsBy('gc_id', 'control-redline')[0];
+                                        redlineCtrl.setFavoriteSymbol(symbolNew);
+                                    });
+                                }
+                                var orEnBtn = document.getElementById('geonote_label_orientation_enable');
+                                orEnBtn.addEventListener("click", function(evt) {
+                                    evt.currentTarget.classList.remove('olControlItemInactive');
+                                    evt.currentTarget.classList.add('olControlItemActive');
+                                    orBtn = document.getElementById('geonote_label_orientation_disable');
+                                    orBtn.classList.remove('olControlItemActive');
+                                    orBtn.classList.add('olControlItemInactive');
+                                    document.getElementById('geonote_orientation_text').setAttribute('value',"1");
+                                });
+                                var orDisBtn = document.getElementById('geonote_label_orientation_disable');
+                                orDisBtn.addEventListener("click", function(evt) {
+                                    evt.currentTarget.classList.remove('olControlItemInactive');
+                                    evt.currentTarget.classList.add('olControlItemActive');
+                                    orBtn = document.getElementById('geonote_label_orientation_enable');
+                                    orBtn.classList.remove('olControlItemActive');
+                                    orBtn.classList.add('olControlItemInactive');
+                                    document.getElementById('geonote_orientation_text').setAttribute('value',"");
+                                    var redlineLayer = GisClientMap.map.getLayersByName('Redline')[0];
+                                    if (redlineLayer.features.length > 0) {
+                                        redlineLayer.features[redlineLayer.features.length-1].style = null;
+                                        redlineLayer.redraw();
                                     }
                                 });
-                                }
                             },
                             'deactivate': function() {
                                 var toolsDiv = document.getElementById('geonote_panel_elem_options_create_point');
@@ -1136,6 +1151,10 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
     },
 
     draw:function(){
+        // **** Load User an map preferences/configurations
+        this.loadUserConfig();
+        this.loadSymbols();
+
         // **** Init vector layers
         this.initRedlineLayer();
 
@@ -1457,7 +1476,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                 featObj.attributes.radius = 0;
             }
             if (featObj.attributes.quote_id && featObj.geometry.CLASS_NAME == "OpenLayers.Geometry.LineString") {
-                debugger;
+                featObj.attributes.fontsize = '12px';
                 if (!featObj.attributes.hasOwnProperty('centroid')) {
                     var ptArr = featObj.geometry.getVertices();
                     var dx = ptArr[1].x-ptArr[0].x;
@@ -1534,7 +1553,17 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
             obj.feature.attributes.fontsize = '12px';
         if (!obj.feature.attributes.angle)
             obj.feature.attributes.angle = 0;
-        obj.feature.attributes.resolution = this.map.getResolution();
+        //obj.feature.attributes.resolution = this.map.getResolution();
+
+        obj.feature.attributes.resolution = this.map.resolutions[clientConfig.GEONOTE_SYMBOL_RES];
+        var res = this.map.getResolution();
+        if (obj.feature.attributes.resolution != res) {
+            var newSize = 16*obj.feature.attributes.resolution/res;
+            newSize = Math.round(newSize);
+            obj.feature.attributes.resolution = res;
+            obj.feature.attributes.attachsize = newSize;
+        }
+
 
         var configNodes = document.querySelectorAll('[data-geonote-attr]');
         for (var i = 0; i < configNodes.length; i++) {
@@ -1919,6 +1948,176 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
             newUrl += item + '=' + queryStringItems[item] + '&';
         };
         return newUrl;
+    },
+
+    loadSymbols: function() {
+        var fontFiles = this.symbolFontFiles;
+        var pendingRequests = fontFiles.length;
+        var symbolArr = [];
+        for (var k=0; k<fontFiles.length; k++) {
+            OpenLayers.Request.GET({
+                url: this.baseUrl + '/admin/ajax/dbList.php',
+                params: {
+                    project: this.map.config.projectName,
+                    prm_livello: 'style',
+                    selectedField: 'symbol_name',
+                    font_name: fontFiles[k]
+                },
+                scope: this,
+                callback: function(response, conf, url) {
+                    var self = this;
+                    if(!response || typeof(response) != 'object' || !response.status || response.status != 200) {
+                        return alert('Errore di sistema');
+                    }
+
+                    if (!response.responseText) {
+                        return;
+                    }
+
+                    var responseObj = JSON.parse(response.responseText);
+
+                    if (!responseObj.result || responseObj.result != 'ok') {
+                        var errMessage = 'Errore in estrazione simboli da font';
+                        if (responseObj.error)
+                            errMessage += ' - Dettagli: ' + responseObj.error;
+                        return alert (errMessage);
+                    }
+                    for(var i=0;i<responseObj.data.length;i++){
+                        symbolArr.push(responseObj.data[i].symbol);
+                    }
+                    pendingRequests--;
+                    if (pendingRequests <= 0) {
+                        symbolArr.sort();
+                        this.symbolArr = symbolArr;
+                    }
+                    // **** Set favorites
+                }
+            });
+        }
+    },
+
+    setFavoriteSymbol: function(symbol) {
+        if (symbol) {
+            var index = (this.config.symbols[this.map.config.mapsetName]).indexOf(symbol);
+            if (index > -1) {
+                (this.config.symbols[this.map.config.mapsetName]).splice(index, 1);
+                var symbolFavRem = document.getElementById('geonote_symbol_fav_'+symbol);
+                symbolFavRem.classList.remove('glyphicon-star');
+                symbolFavRem.classList.add('glyphicon-star-empty');
+            }
+            else {
+                this.config.symbols[this.map.config.mapsetName].push(symbol);
+                this.config.symbols[this.map.config.mapsetName].sort();
+            }
+            // **** save in settings
+            this.saveUserConfig();
+        }
+
+        var symbolListFavCtrl = document.getElementById("geonote_symbol_list_fav");
+        if (this.config.symbols[this.map.config.mapsetName].length < 9) {
+            var hList = this.config.symbols[this.map.config.mapsetName].length * 28;
+            symbolListFavCtrl.style.height = hList + 'px';
+        }
+        else {
+            symbolListFavCtrl.style.height = '250px';
+        }
+        var baseUrl = this.baseUrl;
+        symbolListFavCtrl.innerHTML = '';
+        for (var j=0; j<this.config.symbols[this.map.config.mapsetName].length; j++) {
+            symbolListFavCtrl.innerHTML += '<div><span class="geonote_options_header geonote_symbol_label">' + this.config.symbols[this.map.config.mapsetName][j] +
+            '</span><span class="geonote_options_content"><a id="geonote_symbol_btn_fav_' + this.config.symbols[this.map.config.mapsetName][j] + '" data-geonote-symbol="' + this.config.symbols[this.map.config.mapsetName][j] + '" class="olButton olControlItemInctive"><img src="' +
+            baseUrl + '/admin/getImage.php?table=symbol&id=' + this.config.symbols[this.map.config.mapsetName][j] + '"></a></span>';
+            var symbolFav = document.getElementById('geonote_symbol_fav_'+this.config.symbols[this.map.config.mapsetName][j]);
+            if (symbolFav.classList.contains('glyphicon-star-empty')) {
+                symbolFav.classList.remove('glyphicon-star-empty');
+                symbolFav.classList.add('glyphicon-star');
+            }
+        }
+
+        for (var i=0; i<this.config.symbols[this.map.config.mapsetName].length; i++) {
+            var symbolBtn = document.getElementById('geonote_symbol_btn_fav_'+this.config.symbols[this.map.config.mapsetName][i]);
+            symbolBtn.addEventListener("click", function(evt) {
+                var symbolHCtrl = document.getElementById("geonote_symbol_text");
+                var symbolOld = symbolHCtrl.getAttribute('data-geonote-symbol');
+                var symbolNew = evt.currentTarget.getAttribute('data-geonote-symbol');
+                var ctrlOld = document.getElementById('geonote_symbol_btn_fav_' + symbolOld);
+                if (ctrlOld) {
+                    ctrlOld.classList.remove('olControlItemActive');
+                    ctrlOld.classList.add('olControlItemInactive');
+                }
+                ctrlOld = document.getElementById('geonote_symbol_btn_' + symbolOld);
+                ctrlOld.classList.remove('olControlItemActive');
+                ctrlOld.classList.add('olControlItemInactive');
+                symbolHCtrl.setAttribute('value', baseUrl + '/admin/getImage.php?table=symbol&id=' + symbolNew + '&transparency=1');
+                symbolHCtrl.setAttribute('data-geonote-symbol', symbolNew);
+                evt.currentTarget.classList.remove('olControlItemInactive');
+                evt.currentTarget.classList.add('olControlItemActive');
+            });
+        }
+    },
+
+    loadUserConfig: function() {
+        var request = OpenLayers.Request.POST({
+            url: this.serviceURL,
+            data: OpenLayers.Util.getParameterString({'REQUEST':'GetUser'}),
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+            callback: function(response) {
+                if(!response || typeof(response) != 'object' || !response.status || response.status != 200) {
+                    return alert('Errore di sistema');
+                }
+
+                if (!response.responseText) {
+                        return alert('Errore di sistema, impossibile cericare configurazoine utente');
+                }
+
+                var responseObj = JSON.parse(response.responseText);
+                this.config = {};
+
+                if (responseObj.config) {
+                    this.config = JSON.parse(responseObj.config);
+                }
+                // **** Set defaults
+                if (!this.config.hasOwnProperty('symbols')) {
+                    this.config.symbols = {};
+                }
+                if (!this.config.symbols.hasOwnProperty(this.map.config.mapsetName)) {
+                    this.config.symbols[this.map.config.mapsetName] = [];
+                }
+            },
+            scope: this
+        });
+    },
+
+    saveUserConfig: function() {
+        var params = {
+            CONFIG: JSON.stringify(this.config),
+            REQUEST: 'SaveUser'
+        };
+        var request = OpenLayers.Request.POST({
+            url: this.serviceURL,
+            data: OpenLayers.Util.getParameterString(params),
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+            callback: function(response) {
+                if(!response || typeof(response) != 'object' || !response.status || response.status != 200) {
+                    return alert('Errore di sistema');
+                }
+
+                if (!response.responseText) {
+                        return alert('Errore di sistema, impossibile salvare configurazione utente');
+                }
+
+                var responseObj = JSON.parse(response.responseText);
+
+                if (responseObj.result != 'ok') {
+                    return alert('Errore, impossibile salvare configurazione utente')
+                }
+            },
+            scope: this
+        });
     }
 
  });
