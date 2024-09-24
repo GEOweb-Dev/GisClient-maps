@@ -56,7 +56,7 @@ function manageLoginLogout() {
         type: 'POST',
         dataType: 'json',
         data: {
-          username: $('#LoginWindow input[name="username"]').val(),
+          username: ($('#LoginWindow input[name="username"]').val()).trim(),
           password: passwd
         },
         success: function(response) {
