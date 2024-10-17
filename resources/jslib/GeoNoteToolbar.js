@@ -1540,7 +1540,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
         if (!obj.feature.attributes.attach)
             obj.feature.attributes.attach = '';
         if (!obj.feature.attributes.attachsize)
-            obj.feature.attributes.attachsize = 16;
+            obj.feature.attributes.attachsize = clientConfig.GEONOTE_SYMBOL_SIZE;
         if (!obj.feature.attributes.symbol)
             obj.feature.attributes.symbol = 'circle';
         if (!obj.feature.attributes.radius)
@@ -1556,9 +1556,10 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
         //obj.feature.attributes.resolution = this.map.getResolution();
 
         obj.feature.attributes.resolution = this.map.resolutions[clientConfig.GEONOTE_SYMBOL_RES];
+        debugger;
         var res = this.map.getResolution();
         if (obj.feature.attributes.resolution != res) {
-            var newSize = 16*obj.feature.attributes.resolution/res;
+            var newSize = clientConfig.GEONOTE_SYMBOL_SIZE*obj.feature.attributes.resolution/res;
             newSize = Math.round(newSize);
             obj.feature.attributes.resolution = res;
             obj.feature.attributes.attachsize = newSize;
