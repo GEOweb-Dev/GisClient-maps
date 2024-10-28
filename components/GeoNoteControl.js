@@ -8,8 +8,11 @@ window.GCComponents["Controls"].addControl('control-redline', function(map){
         autoActivate:false,
         saveState:true,
         symbolFontFiles: (clientConfig.GEONOTE_SYMBOL_MAP.hasOwnProperty(GisClientMap.mapsetName)?clientConfig.GEONOTE_SYMBOL_MAP[GisClientMap.mapsetName]:[]),
-        redlineColor: clientConfig.GEONOTE_COLOR,
-        redlineColorM: clientConfig.GEONOTE_COLOR
+        redlineColor: (clientConfig.GEONOTE_DEFAULTS_MAP.hasOwnProperty(GisClientMap.mapsetName)?clientConfig.GEONOTE_DEFAULTS_MAP[GisClientMap.mapsetName].color:clientConfig.GEONOTE_COLOR),
+        redlineColorM: (clientConfig.GEONOTE_DEFAULTS_MAP.hasOwnProperty(GisClientMap.mapsetName)?clientConfig.GEONOTE_DEFAULTS_MAP[GisClientMap.mapsetName].color:clientConfig.GEONOTE_COLOR),
+        redlineColorPalette: clientConfig.GEONOTE_COLOR_PALETTE,
+        defaultPointRadius: clientConfig.GEONOTE_POINT_RADIUS,
+        defaultStrokeWidth: clientConfig.GEONOTE_STROKE_WIDTH
     });
 });
 

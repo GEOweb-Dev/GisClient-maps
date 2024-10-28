@@ -211,8 +211,11 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
     panelList: {},
     controlList: {},
     featureAttr: {},
+    redlineColorPalette: ['#FF00FF'],
     redlineColor: '#FF00FF',
     redlineColorM: '#FF00FF',
+    defaultStrokeWidth: 1,
+    defaultPointRadius: 1,
 
     noteID: null,
     noteList: {},
@@ -231,8 +234,11 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
             geonote_color: {class: ['geonote_panel_cls_draw','geonote_panel_cls_edit','geonote_colorpicker_container'],
             title: '<span class="geonote_colorpicker_header_badge glyphicon-white glyphicon-stop" style="margin-right: 10px; color: '+this.redlineColor+';"></span>Colore',
             foldable: true,
-            content: '<div id="geonote_colorpicker" class="olToolbarControl cp-default"></div>\
-                      <div><span class="geonote_colorpicker_display">&nbsp</span></div>'
+            content: '<div class="geonote_panel_elem_options"><div><span class="geonote_options_header">Scelta colori</span><span class="geonote_options_content">\
+                <a id="geonote_color_palette_switch" class="olButton olControlItemActive">Predefiniti</a>\
+                <a id="geonote_color_colorpicker_switch" class="olButton olControlItemInctive">Tutti</a></span></div></div>\
+                <div id="geonote_color_palette" class="olToolbarControl"></div><div id="geonote_colorpicker" class="olToolbarControl cp-default" style="display:none;"></div>\
+                <div><span class="geonote_colorpicker_display">&nbsp</span></div></div>'
             },
             create_point: {class: 'geonote_panel_cls_draw', title: 'Oggetti Puntuali', foldable: true, content: null},
             create_line: {class: 'geonote_panel_cls_draw', title: 'Oggetti Lineari', foldable: true, content: null},
@@ -473,7 +479,12 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                                 var htmlText = '<div><span class="geonote_options_header">Dimensione punto</span><span class="geonote_options_content">';
                                 htmlText += '<select class="form-control" id="geonote_radius_text" data-geonote-attr="radius">'
                                 for (var i=1; i<=20;i++) {
-                                    htmlText += '<option value="'+i+'">'+i+'</option>';
+                                    if (i == this.ctrl.defaultPointRadius) {
+                                        htmlText += '<option value="'+i+'" selected>'+i+'</option>';
+                                    }
+                                    else {
+                                        htmlText += '<option value="'+i+'">'+i+'</option>';
+                                    }
                                 }
                                 htmlText += '</select>';
                                 htmlText +='</span></div>';
@@ -712,6 +723,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                     this.redlineLayer,
                     OpenLayers.Handler.Path,
                     {
+                        ctrl: this,
                         handlerOptions:{freehand:false},
                         iconclass:"glyphicon-white glyphicon-chevron-left",
                         text:"Spezzata",
@@ -724,7 +736,12 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                                 var htmlText = '<div><span class="geonote_options_header">Spessore linea</span><span class="geonote_options_content">';
                                 htmlText += '<select class="form-control" id="geonote_strokewidth_text" data-geonote-attr="strokewidth">'
                                 for (var i=1; i<=20;i++) {
-                                    htmlText += '<option value="'+i+'">'+i+'</option>';
+                                    if (i == this.ctrl.defaultStrokeWidth) {
+                                        htmlText += '<option value="'+i+'" selected>'+i+'</option>';
+                                    }
+                                    else {
+                                        htmlText += '<option value="'+i+'">'+i+'</option>';
+                                    }
                                 }
                                 htmlText += '</select>';
                                 htmlText +='</span></div>';
@@ -752,6 +769,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                     this.redlineLayer,
                     OpenLayers.Handler.Path,
                     {
+                        ctrl: this,
                         handlerOptions:{freehand:true},
                         iconclass:"glyphicon-white glyphicon-pencil",
                         text:"Curva",
@@ -764,7 +782,12 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                                 var htmlText = '<div><span class="geonote_options_header">Spessore linea</span><span class="geonote_options_content">';
                                 htmlText += '<select class="form-control" id="geonote_strokewidth_text" data-geonote-attr="strokewidth">'
                                 for (var i=1; i<=20;i++) {
-                                    htmlText += '<option value="'+i+'">'+i+'</option>';
+                                    if (i == this.ctrl.defaultStrokeWidth) {
+                                        htmlText += '<option value="'+i+'" selected>'+i+'</option>';
+                                    }
+                                    else {
+                                        htmlText += '<option value="'+i+'">'+i+'</option>';
+                                    }
                                 }
                                 htmlText += '</select>';
                                 htmlText +='</span></div>';
@@ -1185,27 +1208,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
             this.map.addControl(toolbarCtrl);
         };
 
-        var self=this;
-        this.noteColorPicker = ColorPicker(
-                self.mainPanel.getElementsByClassName('cp-default').item(0),
-                function(hex, hsv, rgb) {
-                    self.mainPanel.getElementsByClassName("geonote_colorpicker_display").item(0).style.backgroundColor = hex;
-                    self.mainPanel.getElementsByClassName("geonote_colorpicker_header_badge").item(0).style.color = hex;
-                    if (self.noteColorPicker.panel == "geonote_panel_cls_draw") {
-                        self.redlineColor = hex;
-                    }
-                    else if (self.noteColorPicker.panel == "geonote_panel_cls_edit") {
-                        self.redlineColorM = hex;
-                        for (var i=0; i<self.redlineLayer.selectedFeatures.length; i++) {
-                            self.redlineLayer.selectedFeatures[i].attributes.color = hex;
-                            if (self.redlineLayer.selectedFeatures[i].attributes.attach) {
-                                self.redlineLayer.selectedFeatures[i].attributes.attach = self.updateQueryString(self.redlineLayer.selectedFeatures[i].attributes.attach,{'color':hex.substring(1)});
-                            }
-                        }
-                    }
-                });
-        this.noteColorPicker.panel = "geonote_panel_cls_draw";
-        this.noteColorPicker.setHex(this.redlineColor);
+        this.setColorPanel();
 
         var isGeodesicMeasure = (this.map.projection == 'EPSG:3857' || this.map.projection == 'EPSG:4326')?true:false;
         this.controlList.create_quote[0].geodesic = isGeodesicMeasure;
@@ -1372,6 +1375,77 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                 panels.item(i).style.display = 'block';
             }
         }
+    },
+
+    setColorPanel: function() {
+        var self=this;
+        this.noteColorPicker = ColorPicker(
+                self.mainPanel.getElementsByClassName('cp-default').item(0),
+                function(hex, hsv, rgb) {
+                    self.mainPanel.getElementsByClassName("geonote_colorpicker_display").item(0).style.backgroundColor = hex;
+                    self.mainPanel.getElementsByClassName("geonote_colorpicker_header_badge").item(0).style.color = hex;
+                    if (self.noteColorPicker.panel == "geonote_panel_cls_draw") {
+                        self.redlineColor = hex;
+                    }
+                    else if (self.noteColorPicker.panel == "geonote_panel_cls_edit") {
+                        self.redlineColorM = hex;
+                        for (var i=0; i<self.redlineLayer.selectedFeatures.length; i++) {
+                            self.redlineLayer.selectedFeatures[i].attributes.color = hex;
+                            if (self.redlineLayer.selectedFeatures[i].attributes.attach) {
+                                self.redlineLayer.selectedFeatures[i].attributes.attach = self.updateQueryString(self.redlineLayer.selectedFeatures[i].attributes.attach,{'color':hex.substring(1)});
+                            }
+                        }
+                    }
+                    for (var i=0; i< self.redlineColorPalette.length; i++) {
+                        var colorBtn = self.mainPanel.querySelector('#geonote_color_palette_item_'+i);
+                        if (hex == self.redlineColorPalette[i]) {
+                            colorBtn.classList.remove('olControlItemInactive');
+                            colorBtn.classList.add('olControlItemActive');
+                        }
+                        else {
+                            colorBtn.classList.remove('olControlItemActive');
+                            colorBtn.classList.add('olControlItemInactive');
+                        }
+                    }
+                });
+
+        var panelPalette = this.mainPanel.querySelector('#geonote_color_palette');
+        panelPalette.innerHTML = '';
+        var i = 0;
+        for (i=0; i< this.redlineColorPalette.length; i++) {
+            panelPalette.innerHTML += '<span><a id="geonote_color_palette_item_'+i+'" data-geonote-palette_color="'+this.redlineColorPalette[i]+'" class="olButton olControlItemInctive" style="background-color: '+this.redlineColorPalette[i]+';">'+this.redlineColorPalette[i]+'</a></span>';
+        }
+
+        for (i=0; i< this.redlineColorPalette.length; i++) {
+            var colorBtn = this.mainPanel.querySelector('#geonote_color_palette_item_'+i);
+            colorBtn.addEventListener("click", function(evt) {
+                self.noteColorPicker.setHex(evt.currentTarget.getAttribute('data-geonote-palette_color'));
+            });
+        }
+
+        var btnPalette = this.mainPanel.querySelector('#geonote_color_palette_switch');
+        btnPalette.addEventListener("click", function(evt) {
+            evt.currentTarget.classList.remove('olControlItemInactive');
+            evt.currentTarget.classList.add('olControlItemActive');
+            orBtn = document.getElementById('geonote_color_colorpicker_switch');
+            orBtn.classList.remove('olControlItemActive');
+            orBtn.classList.add('olControlItemInactive');
+            document.getElementById('geonote_color_palette').style.display = 'block';
+            document.getElementById('geonote_colorpicker').style.display = 'none';
+        });
+        var btnColorpicker = this.mainPanel.querySelector('#geonote_color_colorpicker_switch');
+        btnColorpicker.addEventListener("click", function(evt) {
+            evt.currentTarget.classList.remove('olControlItemInactive');
+            evt.currentTarget.classList.add('olControlItemActive');
+            orBtn = document.getElementById('geonote_color_palette_switch');
+            orBtn.classList.remove('olControlItemActive');
+            orBtn.classList.add('olControlItemInactive');
+            document.getElementById('geonote_color_palette').style.display = 'none';
+            document.getElementById('geonote_colorpicker').style.display = 'block';
+        });
+
+        this.noteColorPicker.panel = "geonote_panel_cls_draw";
+        this.noteColorPicker.setHex(this.redlineColor);
     },
 
     createPopup: function(popupContent,popupID) {
@@ -1556,7 +1630,6 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
         //obj.feature.attributes.resolution = this.map.getResolution();
 
         obj.feature.attributes.resolution = this.map.resolutions[clientConfig.GEONOTE_SYMBOL_RES];
-        debugger;
         var res = this.map.getResolution();
         if (obj.feature.attributes.resolution != res) {
             var newSize = clientConfig.GEONOTE_SYMBOL_SIZE*obj.feature.attributes.resolution/res;

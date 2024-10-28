@@ -1,7 +1,13 @@
 clientConfig.CLIENT_COMPONENTS.push("GeoNoteControl:1:tools");
 clientConfig.GEONOTE_COLOR = '#FF00FF';
+clientConfig.GEONOTE_COLOR_PALETTE = [];
 clientConfig.GEONOTE_SYMBOL_RES = 12;
 clientConfig.GEONOTE_SYMBOL_SIZE = 32;
+clientConfig.GEONOTE_STROKE_WIDTH = 1;
+clientConfig.GEONOTE_POINT_RADIUS = 1;
 clientConfig.GEONOTE_SYMBOL_MAP = {
+
+};
+clientConfig.GEONOTE_DEFAULTS_MAP = {
 
 };
