@@ -1413,7 +1413,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
         panelPalette.innerHTML = '';
         var i = 0;
         for (i=0; i< this.redlineColorPalette.length; i++) {
-            panelPalette.innerHTML += '<span><a id="geonote_color_palette_item_'+i+'" data-geonote-palette_color="'+this.redlineColorPalette[i]+'" class="olButton olControlItemInctive" style="background-color: '+this.redlineColorPalette[i]+';">'+this.redlineColorPalette[i]+'</a></span>';
+            panelPalette.innerHTML += '<span><a id="geonote_color_palette_item_'+i+'" data-geonote-palette_color="'+this.redlineColorPalette[i]+'" class="olButton olControlItemInctive" style="background-color: '+this.redlineColorPalette[i]+';"></a></span>';
         }
 
         for (i=0; i< this.redlineColorPalette.length; i++) {
