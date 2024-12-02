@@ -285,6 +285,10 @@ OpenLayers.Control.PrintMap = OpenLayers.Class(OpenLayers.Control, {
                         geometry: txtGeom,
                     };
 
+                    if (layer.features[i].attributes.hasOwnProperty('printoptions')) {
+                        vector.printoptions = layer.features[i].attributes.printoptions;
+                    }
+
                     var styleFields = Object.keys(currentStyle);
                     for (var k=0; k<styleFields.length; k++) {
                         var styleField = styleFields[k];

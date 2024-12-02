@@ -1543,6 +1543,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
         var layerLocal = this.redlineLayer;
         for (var i = obj.features.length-1; i>=0; i--) {
             var featObj = obj.features[i];
+            featObj.attributes.printoptions = clientConfig.GEONOTE_PRINT_OPTIONS;
             if (!featObj.attributes.angle) {
                 featObj.attributes.angle = 0;
             }
@@ -1599,6 +1600,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
 
     styleFeature: function(obj) {
         this.savedState = false;
+        obj.feature.attributes.printoptions = clientConfig.GEONOTE_PRINT_OPTIONS;
         if (obj.type == "beforefeaturemodified") {
             this.noteColorPicker.setHex(obj.feature.attributes.color);
         }

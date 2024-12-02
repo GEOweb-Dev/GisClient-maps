@@ -5,6 +5,9 @@ clientConfig.GEONOTE_SYMBOL_RES = 12;
 clientConfig.GEONOTE_SYMBOL_SIZE = 32;
 clientConfig.GEONOTE_STROKE_WIDTH = 1;
 clientConfig.GEONOTE_POINT_RADIUS = 1;
+clientConfig.GEONOTE_PRINT_OPTIONS = {
+
+};
 clientConfig.GEONOTE_SYMBOL_MAP = {
 
 };
