@@ -353,9 +353,13 @@ div.olMapViewport {
     float: left;
 }
 .geonote_panel_elem_options span.geonote_symbol_label {
-    font-size: 11px;
+    font-size: 9px;
 }
 
+.geonote_panel_elem_options div.geonote_symbol_list {
+    overflow: auto;
+    height: 250px;
+}
 
 .geonote_panel_elem_options span.geonote_options_content {
     float: right;
