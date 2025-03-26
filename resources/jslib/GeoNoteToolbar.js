@@ -216,6 +216,15 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
     redlineColorM: '#FF00FF',
     defaultStrokeWidth: 1,
     defaultPointRadius: 1,
+    lineTypes: {
+        solid: 'continua',
+        dot: 'punti',
+        dash: 'tratteggio',
+        longdash: 'tratteggio lungo',
+        dashdot: 'linea punto',
+        longdashdot: 'linea lunga punto'
+    },
+    defaultLineType: 'solid',
 
     noteID: null,
     noteList: {},
@@ -747,12 +756,13 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                                 htmlText +='</span></div>';
                                 htmlText += '<div><span class="geonote_options_header">Stile linea</span><span class="geonote_options_content">';
                                 htmlText += '<select class="form-control" id="geonote_dashstyle_text" data-geonote-attr="dashstyle">';
-                                htmlText += '<option selected value="solid">continua</option>';
-                                htmlText += '<option value="dot">punti</option>';
-                                htmlText += '<option value="dash">tratteggio</option>';
-                                htmlText += '<option value="longdash">tratteggio lungo</option>';
-                                htmlText += '<option value="dashdot">linea punto</option>';
-                                htmlText += '<option value="longdashdot">linea lunga punto</option>';
+                                for (let patternKey in this.ctrl.lineTypes) {
+                                    var selKey = '';
+                                    if (patternKey == this.ctrl.defaultLineType) {
+                                        selKey = 'selected ';
+                                    }
+                                    htmlText += '<option '+ selKey + 'value="' + patternKey + '">' + this.ctrl.lineTypes[patternKey] + '</option>';
+                                }
                                 htmlText += '</select>';
                                 htmlText +='</span></div>';
                                 toolsDiv.innerHTML = htmlText;
@@ -793,12 +803,13 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                                 htmlText +='</span></div>';
                                 htmlText += '<div><span class="geonote_options_header">Stile linea</span><span class="geonote_options_content">';
                                 htmlText += '<select class="form-control" id="geonote_dashstyle_text" data-geonote-attr="dashstyle">';
-                                htmlText += '<option selected value="solid">continua</option>';
-                                htmlText += '<option value="dot">punti</option>';
-                                htmlText += '<option value="dash">tratteggio</option>';
-                                htmlText += '<option value="longdash">tratteggio lungo</option>';
-                                htmlText += '<option value="dashdot">linea punto</option>';
-                                htmlText += '<option value="longdashdot">linea lunga punto</option>';
+                                for (let patternKey in this.ctrl.lineTypes) {
+                                    var selKey = '';
+                                    if (patternKey == this.ctrl.defaultLineType) {
+                                        selKey = 'selected ';
+                                    }
+                                    htmlText += '<option '+ selKey + 'value="' + patternKey + '">' + this.ctrl.lineTypes[patternKey] + '</option>';
+                                }
                                 htmlText += '</select>';
                                 htmlText +='</span></div>';
                                 toolsDiv.innerHTML = htmlText;
