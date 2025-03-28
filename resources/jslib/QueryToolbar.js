@@ -573,7 +573,7 @@ OpenLayers.GisClient.queryToolbar = OpenLayers.Class(OpenLayers.Control.Panel,{
         switch(type) {
             case 2: //collegamento
                 if(value) {
-                    if (typeof(this.map.config.baseDocUrl) != 'undefined')
+                    if (typeof(this.map.config.baseDocUrl) != 'undefined' && !value.match(/^http:\/\/|https:\/\//))
                         value = this.map.config.baseDocUrl + '/' + value;
                     value = '<a href="'+value+'" target="_blank" class="olControlButtonItemInactive olButton olLikeButton"><span class="glyphicon-white glyphicon-link"></span></a>';
                 }
