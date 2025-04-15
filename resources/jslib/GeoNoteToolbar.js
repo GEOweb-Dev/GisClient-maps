@@ -1344,11 +1344,13 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                     foldS.classList.remove('icon-hide-panel');
                     foldS.classList.add('icon-show-panel');
                     panelContentDiv.style.display = 'none';
+                    panelOptionsDiv.style.display = 'none';
                 }
                 else {
                     foldS.classList.remove('icon-show-panel');
                     foldS.classList.add('icon-hide-panel');
                     panelContentDiv.style.display = 'block';
+                    panelOptionsDiv.style.display = 'block';
                 }
             });
         }
@@ -1470,7 +1472,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
         noteModalBackgound.appendChild(notePopup);
         document.body.appendChild(noteModalBackgound);
         noteModalBackgound.addEventListener('click', function (evt) {
-            if (evt.target.className === 'geonote_popup_modal_background') {
+            if (evt.target.className === 'geonote_popup_modal_background' && !$.mobile) {
                 evt.target.remove();
             }
         });
