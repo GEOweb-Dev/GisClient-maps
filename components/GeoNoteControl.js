@@ -7,6 +7,7 @@ window.GCComponents["Controls"].addControl('control-redline', function(map){
         div:document.getElementById("map-toolbar-redline"),
         autoActivate:false,
         saveState:true,
+        noteStatusList: clientConfig.GEONOTE_STATUS_LIST,
         symbolFontFiles: (clientConfig.GEONOTE_SYMBOL_MAP.hasOwnProperty(GisClientMap.mapsetName)?clientConfig.GEONOTE_SYMBOL_MAP[GisClientMap.mapsetName]:[]),
         redlineColor: (clientConfig.GEONOTE_DEFAULTS_MAP.hasOwnProperty(GisClientMap.mapsetName) && clientConfig.GEONOTE_DEFAULTS_MAP[GisClientMap.mapsetName].hasOwnProperty('color')?clientConfig.GEONOTE_DEFAULTS_MAP[GisClientMap.mapsetName].color:clientConfig.GEONOTE_COLOR),
         redlineColorM: (clientConfig.GEONOTE_DEFAULTS_MAP.hasOwnProperty(GisClientMap.mapsetName) && clientConfig.GEONOTE_DEFAULTS_MAP[GisClientMap.mapsetName].hasOwnProperty('color')?clientConfig.GEONOTE_DEFAULTS_MAP[GisClientMap.mapsetName].color:clientConfig.GEONOTE_COLOR),

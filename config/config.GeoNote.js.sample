@@ -9,6 +9,9 @@ clientConfig.GEONOTE_LINE_TYPE = 'solid';
 clientConfig.GEONOTE_PRINT_OPTIONS = {
 
 };
+clientConfig.GEONOTE_STATUS_LIST = [
+    {label: 'Nuova', readonly: false, save: false} 
+];
 clientConfig.GEONOTE_SYMBOL_MAP = {
 
 };
