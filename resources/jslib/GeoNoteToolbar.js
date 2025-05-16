@@ -1800,9 +1800,12 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                 var noteOpt = document.createElement( 'option' );
                 noteOpt.value = i;
                 noteOpt.text = self.ctrl.noteStatusList[i].label;
+                if (self.ctrl.noteID && self.ctrl.noteList[self.ctrl.noteID].status == self.ctrl.noteStatusList[i].label) {
+                    noteOpt.selected = true;
+                }
                 document.getElementById("geonote_note_status_list").add(noteOpt);
             }
-       } 
+       }
        document.getElementById("geonote_note_name").value = self.ctrl.noteTitle;
        document.getElementById("geonote_save").addEventListener("click", function (evt) {
            var noteTitle = document.getElementById("geonote_note_name").value;
@@ -2234,6 +2237,20 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                 }
                 if (!this.config.symbols.hasOwnProperty(this.map.config.mapsetName)) {
                     this.config.symbols[this.map.config.mapsetName] = [];
+                }
+                // **** Check if some favorite symbol has been removed from GEOweb font files
+                var symbolRemoved = false;
+                var k = this.config.symbols[this.map.config.mapsetName].length;
+                while (k--) {
+                    var index = (this.symbolArr).indexOf(this.config.symbols[this.map.config.mapsetName][k]);
+                    if (index < 0) {
+                        this.config.symbols[this.map.config.mapsetName].splice(k, 1);
+                        symbolRemoved = true;
+                    }
+                }
+                if (symbolRemoved) {
+                    // **** save in settings
+                    this.saveUserConfig();
                 }
             },
             scope: this
