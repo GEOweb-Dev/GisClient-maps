@@ -1823,7 +1823,8 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                 reqParams["REDLINEID"] = null;
 
             var geojson_format = new OpenLayers.Format.GeoJSON();
-            reqParams.features = geojson_format.write(self.ctrl.redlineLayer.features);
+            var featuresSave = self.ctrl.checkFeatures(self.ctrl.redlineLayer.features);
+            reqParams.features = geojson_format.write(featuresSave);
 
             var request = OpenLayers.Request.POST({
                 url: self.ctrl.serviceURL,
@@ -2302,6 +2303,19 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                 modal.item(modal.length-1).remove();
             }
         });
+    },
+
+    checkFeatures: function(featuresArr) {
+        var featureRes = [];
+        for (var i=0; i<featuresArr.length; i++) {
+            var featCheck = featuresArr[i];
+            // **** Prevent linestrings with a single vertex from being added
+            if (featCheck.geometry.CLASS_NAME == "OpenLayers.Geometry.LineString" && featCheck.geometry.components.length < 2) {
+                continue;
+            }
+            featureRes.push(featCheck);
+        }
+        return featureRes;
     }
 
  });
