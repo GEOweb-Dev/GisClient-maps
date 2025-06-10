@@ -315,13 +315,19 @@ div.olMapViewport {
     padding: 4px 8px 5px 8px !important;
 }
 
+.geonote_panel_elem_options .olOptionDisabled {
+    color:#aaaaaa;
+    font-style: italic;
+    font-size: 12px;
+}
+
 *::-ms-backdrop,.geonote_panel_elem_content div {
     display: table;
     width: 410px;
 }
 
 .geonote_panel_elem_header {
-    margin-bottom: : 5px;
+    margin-bottom: 5px;
 }
 
 .geonote_panel_elem span.icon-hide-panel {

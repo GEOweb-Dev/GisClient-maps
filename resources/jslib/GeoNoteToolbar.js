@@ -233,7 +233,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
     noteDefaultStatusId: 0,
     noteStatusList:[
         {label: 'Nuova', readonly: false, save: false}
-    ] , 
+    ] ,
     noteDefaultTitle: 'Nuova nota',
     savedState: false,
     loading: false,
@@ -1565,7 +1565,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
             this.map.currentControl.deactivate();
             this.map.currentControl = this.map.defaultControl;
             return false;
-        } 
+        }
         var layerLocal = this.redlineLayer;
         for (var i = obj.features.length-1; i>=0; i--) {
             var featObj = obj.features[i];
@@ -1630,7 +1630,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
             this.map.currentControl.deactivate();
             this.map.currentControl = this.map.defaultControl;
             return false;
-        } 
+        }
         this.savedState = false;
         obj.feature.attributes.printoptions = clientConfig.GEONOTE_PRINT_OPTIONS;
         if (obj.type == "beforefeaturemodified") {
@@ -1777,7 +1777,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
     if (this.ctrl.readonly){
         alert ('Nota in sola lettura, le modifiche sono disabilitate');
         return false;
-    } 
+    }
        var toolsDiv = document.getElementById('geonote_panel_elem_options_note_manage');
        toolsDiv.innerHTML = '<div class="geonote-popup-form">\
            <div class="geonote-popup-form-group">\
@@ -1853,7 +1853,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                     this.noteID = responseObj.redlineId;
                     if (!this.noteList.hasOwnProperty(responseObj.redlineId)){
                         this.noteList[responseObj.redlineId] ={title: responseObj.redlineTitle};
-                    } 
+                    }
                     this.noteList[responseObj.redlineId].status = this.noteStatusList[responseObj.redlineStatus].label;
                     this.noteList[responseObj.redlineId].readonly = this.noteStatusList[responseObj.redlineStatus].readonly;
                     this.redraw();
@@ -1922,23 +1922,25 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                         var redlineStatusId = 0;
                         if (responseObj.layers[i].redline_status != null) {
                             redlineStatusId = responseObj.layers[i].redline_status;
-                        } 
-                        var redlineStatus = this.ctrl.noteStatusList[redlineStatusId].label;
-                        var redlineReadonly = this.ctrl.noteStatusList[redlineStatusId].readonly;
-                        var noteOpt = document.createElement( 'option' );
-                        noteOpt.value = responseObj.layers[i].redline_id;
-                        noteOpt.text = responseObj.layers[i].redline_title;
-                        document.getElementById("geonote_note_list").add(noteOpt);
-                        var noteOptStatus = document.createElement( 'option' );
-                        noteOptStatus.value = responseObj.layers[i].redline_id;
-                        noteOptStatus.text = 'Stato nota: ' + redlineStatus;
-                        noteOptStatus.classList.add('olOptionDisabled');
-                        noteOptStatus.disabled = true;
-                        document.getElementById("geonote_note_list").add(noteOptStatus);
-                        this.ctrl.noteList[responseObj.layers[i].redline_id] = {
-                            title : responseObj.layers[i].redline_title,
-                            status :  redlineStatus,
-                            readonly: redlineReadonly
+                        }
+                        if (redlineStatusId in this.ctrl.noteStatusList) {
+                            var redlineStatus = this.ctrl.noteStatusList[redlineStatusId].label;
+                            var redlineReadonly = this.ctrl.noteStatusList[redlineStatusId].readonly;
+                            var noteOpt = document.createElement( 'option' );
+                            noteOpt.value = responseObj.layers[i].redline_id;
+                            noteOpt.text = responseObj.layers[i].redline_title;
+                            document.getElementById("geonote_note_list").add(noteOpt);
+                            var noteOptStatus = document.createElement( 'option' );
+                            noteOptStatus.value = responseObj.layers[i].redline_id;
+                            noteOptStatus.text = 'Stato nota: ' + redlineStatus;
+                            noteOptStatus.classList.add('olOptionDisabled');
+                            noteOptStatus.disabled = true;
+                            document.getElementById("geonote_note_list").add(noteOptStatus);
+                            this.ctrl.noteList[responseObj.layers[i].redline_id] = {
+                                title : responseObj.layers[i].redline_title,
+                                status :  redlineStatus,
+                                readonly: redlineReadonly
+                            }
                         }
                     }
                 }
@@ -2006,7 +2008,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
         if (this.ctrl.readonly){
             alert ('Nota in sola lettura, le modifiche sono disabilitate');
             return false;
-        } 
+        }
         var toolsDiv = document.getElementById('geonote_panel_elem_options_note_manage');
         toolsDiv.innerHTML = '';
         if (this.ctrl.redlineLayer.features.length == 0)
@@ -2300,6 +2302,6 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                 modal.item(modal.length-1).remove();
             }
         });
-    } 
+    }
 
  });
