@@ -1826,6 +1826,9 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
             var featuresSave = self.ctrl.checkFeatures(self.ctrl.redlineLayer.features);
             reqParams.features = geojson_format.write(featuresSave);
 
+            self.map.currentControl.deactivate();
+            self.map.currentControl=self.map.defaultControl;
+
             var request = OpenLayers.Request.POST({
                 url: self.ctrl.serviceURL,
                 data: OpenLayers.Util.getParameterString(reqParams),
@@ -2309,9 +2312,23 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
         var featureRes = [];
         for (var i=0; i<featuresArr.length; i++) {
             var featCheck = featuresArr[i];
-            // **** Prevent linestrings with a single vertex from being added
-            if (featCheck.geometry.CLASS_NAME == "OpenLayers.Geometry.LineString" && featCheck.geometry.components.length < 2) {
-                continue;
+            switch (featCheck.geometry.CLASS_NAME) {
+                case "OpenLayers.Geometry.Point":
+                // **** Fix for resize on collapsed linestrings
+                if (!isFinite(featCheck.geometry.x) || !isFinite(featCheck.geometry.y)) {
+                    continue;
+                }
+                break;
+                case "OpenLayers.Geometry.LineString":
+                // **** Prevent linestrings with a single vertex from being added
+                if (featCheck.geometry.components.length < 2) {
+                    continue;
+                }
+                if (!isFinite(featCheck.geometry.components[0].x) || !isFinite(featCheck.geometry.components[0].y)) {
+                    continue;
+                }
+                break;
+                default:
             }
             featureRes.push(featCheck);
         }
