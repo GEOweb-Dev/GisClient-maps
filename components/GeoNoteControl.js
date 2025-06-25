@@ -9,6 +9,8 @@ window.GCComponents["Controls"].addControl('control-redline', function(map){
         saveState:true,
         noteStatusList: clientConfig.GEONOTE_STATUS_LIST,
         symbolFontFiles: (clientConfig.GEONOTE_SYMBOL_MAP.hasOwnProperty(GisClientMap.mapsetName)?clientConfig.GEONOTE_SYMBOL_MAP[GisClientMap.mapsetName]:[]),
+        symbolPatternFirst: clientConfig.GEONOTE_SYMBOL_PATTERN_FIRST,
+        symbolPatternLast: clientConfig.GEONOTE_SYMBOL_PATTERN_LAST,
         redlineColor: (clientConfig.GEONOTE_DEFAULTS_MAP.hasOwnProperty(GisClientMap.mapsetName) && clientConfig.GEONOTE_DEFAULTS_MAP[GisClientMap.mapsetName].hasOwnProperty('color')?clientConfig.GEONOTE_DEFAULTS_MAP[GisClientMap.mapsetName].color:clientConfig.GEONOTE_COLOR),
         redlineColorM: (clientConfig.GEONOTE_DEFAULTS_MAP.hasOwnProperty(GisClientMap.mapsetName) && clientConfig.GEONOTE_DEFAULTS_MAP[GisClientMap.mapsetName].hasOwnProperty('color')?clientConfig.GEONOTE_DEFAULTS_MAP[GisClientMap.mapsetName].color:clientConfig.GEONOTE_COLOR),
         redlineColorPalette: clientConfig.GEONOTE_COLOR_PALETTE,

@@ -10,11 +10,13 @@ clientConfig.GEONOTE_PRINT_OPTIONS = {
 
 };
 clientConfig.GEONOTE_STATUS_LIST = [
-    {label: 'Nuova', readonly: false, save: false} 
+    {label: 'Nuova', readonly: false, save: false}
 ];
 clientConfig.GEONOTE_SYMBOL_MAP = {
 
 };
+clientConfig.GEONOTE_SYMBOL_PATTERN_FIRST = null;
+clientConfig.GEONOTE_SYMBOL_PATTERN_LAST = null;
 clientConfig.GEONOTE_DEFAULTS_MAP = {
     mapset_name: {
         color: '',

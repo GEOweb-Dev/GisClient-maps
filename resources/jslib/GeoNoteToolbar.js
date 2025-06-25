@@ -202,6 +202,8 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
     redlineLayer : null,
     symbolFontFiles: [],
     symbolArr: [],
+    symbolPatternFirst: null,
+    symbolPatternLast: null,
     snapLayer : null,
     snapMapQuery: null,
     snapCtrl: null,
@@ -609,6 +611,8 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                                 toolsDiv.innerHTML = '<div><span class="geonote_options_header">Disegna simbolo</span><span class="geonote_options_content">\
                                 <a id="geonote_label_orientation_disable" class="olButton olControlItemInactive">Semplice</a>\
                                 <a id="geonote_label_orientation_enable" class="olButton olControlItemActive">Orientato</a></span>';
+                                toolsDiv.innerHTML += '<div><span class="geonote_options_header">Testo Etichetta</span>\
+                                <span class="geonote_options_content"><textarea name="text" class="form-control" id="geonote_label_text" data-geonote-attr="label"></textarea></span></div>';
                                 toolsDiv.innerHTML += '<div><span class="geonote_options_header">Visualizza simboli</span><span class="geonote_options_content">\
                                 <a id="geonote_symbol_show_all" class="olButton">Tutti</a>\
                                 <a id="geonote_symbol_show_fav" class="olButton">Preferiti</a></span>';
@@ -1498,11 +1502,19 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
             if (ftObj.attributes.attach) {
                 var oldRes = ftObj.attributes.resolution;
                 var oldSize = ftObj.attributes.attachsize;
+                var oldXOff = ftObj.attributes.labelxoff;
+                var oldYOff = ftObj.attributes.labelyoff;
                 var res = this.map.getResolution();
                 var newSize = oldSize*oldRes/res;
+                var newXOff = oldXOff*oldRes/res;
+                var newYOff = oldYOff*oldRes/res;
                 newSize = Math.round(newSize);
+                newXOff = Math.round(newXOff);
+                newYOff = Math.round(newYOff);
                 ftObj.attributes.resolution = res;
                 ftObj.attributes.attachsize = newSize;
+                ftObj.attributes.labelxoff = newXOff;
+                ftObj.attributes.labelyoff = newYOff;
                 ftObj.attributes.attach = this.updateQueryString(ftObj.attributes.attach,{'size':newSize});
             }
             if (ftObj.attributes.centroid) {
@@ -1679,6 +1691,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
             var confAttr = confNode.getAttribute('data-geonote-attr');
             if (confAttr == 'attach') {
                 obj.feature.attributes[confAttr] = confNode.value + '&color=' + this.redlineColor.substring(1) + '&size=' + obj.feature.attributes.attachsize;
+                obj.feature.attributes.labelyoff = Math.round(obj.feature.attributes.attachsize/2) + 4;
             }
             else if (confAttr == 'radius') {
                 obj.feature.attributes[confAttr] = confNode.value;
@@ -2146,7 +2159,26 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                     }
                     pendingRequests--;
                     if (pendingRequests <= 0) {
-                        symbolArr.sort();
+                        symbolArr.sort(function (a, b) {
+                            var self_ = self;
+                            var a1 = a;
+                            var b1 = b;
+                            if (self_.symbolPatternFirst && self_.symbolPatternFirst.length > 0) {
+                                if (a1.indexOf(self_.symbolPatternFirst) == 0) {
+                                    a1 = ' ' + a1;
+                                }
+                                if (b1.indexOf(self_.symbolPatternFirst) == 0) {
+                                    b1 = ' ' + b1;
+                                }
+                            }
+                            if (a1 < b1) {
+                                return -1;
+                            }
+                            else if (a1 > b1) {
+                                return 1;
+                            }
+                            return 0;
+                        });
                         this.symbolArr = symbolArr;
                     }
                     // **** Set favorites
