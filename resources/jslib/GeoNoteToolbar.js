@@ -1676,10 +1676,13 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
         //obj.feature.attributes.resolution = this.map.getResolution();
 
         obj.feature.attributes.resolution = this.map.resolutions[clientConfig.GEONOTE_SYMBOL_RES];
+        var symbolYOffset = (clientConfig.GEONOTE_SYMBOL_SIZE/2) + 8;
         var res = this.map.getResolution();
         if (obj.feature.attributes.resolution != res) {
             var newSize = clientConfig.GEONOTE_SYMBOL_SIZE*obj.feature.attributes.resolution/res;
+            symbolYOffset = symbolYOffset*obj.feature.attributes.resolution/res;
             newSize = Math.round(newSize);
+            symbolYOffset = Math.round(symbolYOffset);
             obj.feature.attributes.resolution = res;
             obj.feature.attributes.attachsize = newSize;
         }
@@ -1691,7 +1694,8 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
             var confAttr = confNode.getAttribute('data-geonote-attr');
             if (confAttr == 'attach') {
                 obj.feature.attributes[confAttr] = confNode.value + '&color=' + this.redlineColor.substring(1) + '&size=' + obj.feature.attributes.attachsize;
-                obj.feature.attributes.labelyoff = Math.round(obj.feature.attributes.attachsize/2) + 4;
+                obj.feature.attributes.labelyoff = symbolYOffset;
+                obj.feature.attributes.fontsize = '14px';
             }
             else if (confAttr == 'radius') {
                 obj.feature.attributes[confAttr] = confNode.value;
