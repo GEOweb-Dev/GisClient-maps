@@ -242,10 +242,15 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
     readonly: false,
     userSettings: {},
     undoRedoBuffer: [],
+    undoRedoBufferSize: 20,
+    undoRedoExecute: false,
+    undoRedoIndex: 0,
     isMobile: false,
 
     initialize: function(options) {
         OpenLayers.Control.Panel.prototype.initialize.apply(this, [options]);
+
+        this.undoRedoBuffer.push([]);
 
         // **** Set default panels
         OpenLayers.Util.extend(this.panelList, {
@@ -258,6 +263,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                 <div id="geonote_color_palette" class="olToolbarControl"></div><div id="geonote_colorpicker" class="olToolbarControl cp-default" style="display:none;"></div>\
                 <div><span class="geonote_colorpicker_display">&nbsp</span></div></div>'
             },
+            edit_tools: {class: ['geonote_panel_cls_draw','geonote_panel_cls_edit'], title: 'Strumenti di Modifica', foldable: true, content: null},
             create_point: {class: 'geonote_panel_cls_draw', title: 'Oggetti Puntuali', foldable: true, content: null},
             create_line: {class: 'geonote_panel_cls_draw', title: 'Oggetti Lineari', foldable: true, content: null},
             create_polygon: {class: 'geonote_panel_cls_draw', title: 'Oggetti Poligonali', foldable: true, content: null},
@@ -265,6 +271,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
             geom_edit: {class: 'geonote_panel_cls_edit', title: 'Modifica Oggetti', foldable: true, content: null},
             note_manage: {class: 'geonote_panel_cls_manage', title: null, foldable: false, content: null},
             note_snap: {class: 'geonote_panel_cls_manage', title: 'Snapping', foldable: true, content: null},
+            note_tools_io: {class: 'geonote_panel_cls_manage', title: 'Importa/Esporta', foldable: true, content: null}
         });
 
         // **** Create toolbar DOM Objects
@@ -1059,21 +1066,37 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                         iconclass:"glyphicon-white glyphicon-remove",
                         text:"Cancella",
                         title:"Cancella geometria",
-                        eventListeners: {'activate': function(){this.map.currentControl.deactivate();this.map.currentControl=this}},
-                        onSelect:function(feature){
-                            var self = this;
-
-                            var origLayerIndex = this.map.getLayerIndex(this.layer);
-                            var maxIndex = this.map.getLayerIndex(this.map.layers[this.map.layers.length -1]);
-                            if(origLayerIndex < maxIndex) this.map.raiseLayer(this.layer, (maxIndex - origLayerIndex));
-                            this.map.resetLayersZIndex();
-
-                            self.unselectAll();
-                            if (confirm('Eliminare la geometria selezionata?')) {
-                                self.layer.removeFeatures([feature]);
-                                this.ctrl.savedState = false;
+                        highlightOnly: true,
+                        eventListeners: {
+                            'activate': function(){
+                                this.map.currentControl.deactivate();
+                                var origLayerIndex = this.map.getLayerIndex(this.layer);
+                                var maxIndex = this.map.getLayerIndex(this.map.layers[this.map.layers.length -1]);
+                                if(origLayerIndex < maxIndex) this.map.raiseLayer(this.layer, (maxIndex - origLayerIndex));
+                                this.map.resetLayersZIndex();
+                                this.map.currentControl=this
+                            },
+                            featurehighlighted: function(obj) {
+                                var self = this;
+                                setTimeout(function(){
+                                    if (confirm('Eliminare la geometria selezionata?')) {
+                                        self.layer.removeFeatures(featArr);
+                                        self.ctrl.savedState = false;
+                                    }
+                                    else {
+                                        self.unhighlight(feature);
+                                    }
+                                }, 100);
+                                var feature = obj.feature;
+                                var featArr = [];
+                                if (feature.attributes.quote_id) {
+                                    featArr = this.layer.getFeaturesByAttribute('quote_id',feature.attributes.quote_id);
+                                }
+                                else {
+                                    featArr = [feature];
+                                }
                             }
-                        }
+                        },
                     }
                 )
             ],
@@ -1082,7 +1105,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                     {
                         ctrl: this,
                         type: OpenLayers.Control.TYPE_BUTTON ,
-                        iconclass:"glyphicon-white glyphicon-list-alt",
+                        iconclass:"glyphicon-white glyphicon-check",
                         text:"Snapping attivato",
                         title:"Snapping attivato",
                         trigger: function(){
@@ -1133,7 +1156,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                     {
                         ctrl: this,
                         type: OpenLayers.Control.TYPE_BUTTON ,
-                        iconclass:"glyphicon-white glyphicon-floppy-saved",
+                        iconclass:"glyphicon-white glyphicon-unchecked",
                         text:"Snapping disattivato",
                         title:"Snapping disattivato",
                         trigger: function() {
@@ -1145,6 +1168,87 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                                 this.map.events.unregister('moveend', this.ctrl, this.ctrl.getSnapFeatures);
                                 var toolsDiv = document.getElementById('geonote_panel_elem_options_note_snap');
                                 toolsDiv.innerHTML = '';
+                            }
+                        }
+                    }
+                )
+            ],
+            note_tools_io: [
+                new OpenLayers.Control(
+                    {
+                        ctrl: this,
+                        type: OpenLayers.Control.TYPE_BUTTON ,
+                        iconclass:"glyphicon-white glyphicon-download-alt",
+                        text:"Importa GPX",
+                        title:"Importa GPX",
+                        trigger: function() {
+                            var toolsDiv = document.getElementById('geonote_panel_elem_options_note_tools_io');
+                            toolsDiv.innerHTML = '<input type="file" id="geonote_import_gpx" accept=".txt, .gpx" style="display: none"/>';
+                            fileBtn = document.getElementById("geonote_import_gpx");
+                            fileBtn.click();
+                            var self = this;
+                            fileBtn.addEventListener("change", function() {
+                                var gpxFile = new FileReader();
+                                gpxFile.addEventListener("load", function() {
+                                    var parserGPX = new OpenLayers.Format.GPX();
+                                    var featuresGPX = parserGPX.read(gpxFile.result);
+                                    if (featuresGPX.length > 0) {
+                                        for (var i=0; i < featuresGPX.length; i++) {
+                                            featuresGPX[i].geometry.transform(parserGPX.externalProjection.projCode, GisClientMap.map.projection);
+                                            featuresGPX[i].attributes.printoptions = clientConfig.GEONOTE_PRINT_OPTIONS;
+                                            featuresGPX[i].attributes.color = self.ctrl.redlineColor;
+                                            featuresGPX[i].attributes.labelxoff = 0;
+                                            featuresGPX[i].attributes.labelyoff = 12;
+                                            featuresGPX[i].attributes.label = '';
+                                            featuresGPX[i].attributes.attach = '';
+                                            featuresGPX[i].attributes.attachsize = clientConfig.GEONOTE_SYMBOL_SIZE;
+                                            featuresGPX[i].attributes.symbol = 'circle';
+                                            featuresGPX[i].attributes.radius = clientConfig.GEONOTE_POINT_RADIUS;
+                                            featuresGPX[i].attributes.strokewidth = clientConfig.GEONOTE_STROKE_WIDTH;
+                                            featuresGPX[i].attributes.dashstyle = clientConfig.GEONOTE_LINE_TYPE;
+                                            featuresGPX[i].attributes.fontsize = '12px';
+                                            featuresGPX[i].attributes.angle = 0;
+                                        }
+                                        var redlineLayer = GisClientMap.map.getLayersByName('Redline')[0];
+                                        redlineLayer.addFeatures(featuresGPX);
+                                        this.savedState = false;
+                                        GisClientMap.map.zoomToExtent(redlineLayer.getDataExtent());
+                                    }
+                                    else {
+                                        alert ('Il file non contiene tracciati validi');
+                                    }
+                                },false);
+                                gpxFile.readAsText(this.files[0]);
+                            });
+                        }
+                    }
+                ),
+            ],
+            edit_tools: [
+                new OpenLayers.Control(
+                    {
+                        ctrl: this,
+                        type: OpenLayers.Control.TYPE_BUTTON ,
+                        iconclass:"glyphicon-white glyphicon-backward",
+                        text:"Annulla",
+                        title:"Annulla",
+                        trigger: function() {
+                            if (this.ctrl.undoRedoIndex > 0) {
+                                this.ctrl.applyUndoRedo(--this.ctrl.undoRedoIndex);
+                            }
+                        }
+                    }
+                ),
+                new OpenLayers.Control(
+                    {
+                        ctrl: this,
+                        type: OpenLayers.Control.TYPE_BUTTON ,
+                        iconclass:"glyphicon-white glyphicon-forward",
+                        text:"Ripristina",
+                        title:"Ripristina",
+                        trigger: function() {
+                            if (this.ctrl.undoRedoIndex < this.ctrl.undoRedoBuffer.length -1) {
+                                this.ctrl.applyUndoRedo(++this.ctrl.undoRedoIndex);
                             }
                         }
                     }
@@ -1578,7 +1682,11 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
             this.map.currentControl = this.map.defaultControl;
             return false;
         }
+        if (this.undoRedoExecute) {
+            return;
+        }
         var layerLocal = this.redlineLayer;
+        self = this;
         for (var i = obj.features.length-1; i>=0; i--) {
             var featObj = obj.features[i];
             featObj.attributes.printoptions = clientConfig.GEONOTE_PRINT_OPTIONS;
@@ -1614,6 +1722,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                         var innerFeature = layerLocal.getFeatureById(featureID);
                         innerFeature.attributes.label = valueTxt.value;
                         innerFeature.layer.drawFeature(innerFeature);
+                        self.saveUndoRedoBuffer('rewrite', null);
                         var modal = document.querySelectorAll('.geonote_popup_modal_background');
                         if (modal) {
                             modal.item(modal.length-1).remove();
@@ -1625,7 +1734,11 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
     },
 
     featureAdded: function(obj) {
-
+        var quote_id = null;
+        if (obj.feature.attributes.quote_id) {
+            quote_id = obj.feature.attributes.quote_id
+        }
+        this.saveUndoRedoBuffer(obj.type, quote_id);
     },
 
     featureModified: function(obj) {
@@ -1634,6 +1747,11 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
             obj.feature.attributes.attach = this.updateQueryString(obj.feature.attributes.attach,{'color':this.redlineColorM.substring(1)});
         }
         this.savedState = false;
+        var quote_id = null;
+        if (obj.feature.attributes.quote_id) {
+            quote_id = obj.feature.attributes.quote_id
+        }
+        this.saveUndoRedoBuffer(obj.type, quote_id);
     },
 
     styleFeature: function(obj) {
@@ -1725,6 +1843,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                     }
                     lastFeature.style = null;
                     this.redlineLayer.redraw();
+                    this.saveUndoRedoBuffer('rewrite', null);
                     return false;
                 }
                 else {
@@ -2020,6 +2139,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
         this.redlineLayer.redraw();
         this.savedState = true;
         this.loading = false;
+        this.saveUndoRedoBuffer('loadend', null);
 
         if (this.redlineLayer.features.length > 0)
             this.map.zoomToExtent(this.redlineLayer.getDataExtent());
@@ -2096,6 +2216,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
         this.noteID = null;
         this.readonly = false;
         this.savedState = false;
+        this.saveUndoRedoBuffer('loadend', null);
         this.redraw();
     },
 
@@ -2369,6 +2490,57 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
             featureRes.push(featCheck);
         }
         return featureRes;
+    },
+
+    saveUndoRedoBuffer: function(type, quote_id) {
+        if (this.undoRedoExecute || this.loading || type == 'vertexmodified') {
+            return;
+        }
+        if (quote_id != null) {
+            var quotesArr = this.redlineLayer.getFeaturesByAttribute('quote_id',quote_id);
+            if ((type == 'featureremoved' && quotesArr.length > 0) || ((type == 'featureadded' || type == 'featuremodified') && quotesArr.length < 3)) {
+                return;
+            }
+        }
+        if (type == 'loadend') {
+            this.undoRedoBuffer = [];
+        }
+        if (type == 'rewrite') {
+            this.undoRedoBuffer.pop();
+        }
+        if (this.undoRedoBuffer.length == this.undoRedoBufferSize) {
+            this.undoRedoBuffer.shift();
+        }
+        if (this.undoRedoIndex < this.undoRedoBuffer.length -1) {
+            this.undoRedoBuffer.splice(this.undoRedoIndex+1);
+        }
+
+        var featuresItem = new Array();
+        for (var i=0; i<this.redlineLayer.features.length; i++) {
+            if (this.redlineLayer.features[i].style != null || this.redlineLayer.features[i].renderIntent == 'temporary') {
+                continue;
+            }
+            var featureItem = this.redlineLayer.features[i].clone();
+            featuresItem.push(featureItem);
+        }
+        this.undoRedoBuffer.push(featuresItem);
+        this.undoRedoIndex = this.undoRedoBuffer.length -1;
+    },
+
+    applyUndoRedo: function(idx) {
+        if (idx >= this.undoRedoBuffer.length) {
+            return;
+        }
+        this.undoRedoExecute = true;
+        var undoRedoItem = this.undoRedoBuffer[idx];
+        var undoRedoItemNew = new Array();
+        for (var i=0; i<undoRedoItem.length; i++) {
+            undoRedoItemNew.push(undoRedoItem[i].clone());
+        }
+        this.redlineLayer.destroyFeatures();
+        this.redlineLayer.addFeatures(undoRedoItemNew);
+        this.zoomEnd();
+        this.undoRedoExecute = false;
     }
 
  });
