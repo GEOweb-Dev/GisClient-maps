@@ -218,6 +218,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
     redlineColorM: '#FF00FF',
     defaultStrokeWidth: 1,
     defaultPointRadius: 1,
+    defaultFillOpacity: 0.7,
     lineTypes: {
         solid: 'continua',
         dot: 'punti',
@@ -315,7 +316,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
 
         var redlineStyleDefault = new OpenLayers.Style({
             pointRadius: '${radius}',
-            fillOpacity: 0.7,
+            fillOpacity: '${opacity}',
             fontSize: "${fontsize}",
             fontFamily: "Courier New, monospace",
             fontWeight: "bold",
@@ -845,12 +846,33 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                     this.redlineLayer,
                     OpenLayers.Handler.Polygon,
                     {
+                        ctrl: this,
                         iconclass:"glyphicon-white glyphicon-unchecked",
                         text:"Poligono",
                         title:"Inserisci poligono",
-                        eventListeners: {'activate': function(){
+                        eventListeners: {
+                            'activate': function(){
                                 this.map.currentControl.deactivate();
                                 this.map.currentControl=this;
+                                var defaultOpacity = this.ctrl.defaultFillOpacity*100;
+                                var toolsDiv = document.getElementById('geonote_panel_elem_options_create_polygon');
+                                var htmlText = '<div><span class="geonote_options_header">Opacità</span><span class="geonote_options_content">';
+                                htmlText += '<input type="hidden" value="" class="form-control" id="geonote_opacity_text" data-geonote-attr="opacity">';
+                                htmlText += '<div><input type="range" min="1" max="100" value="' + defaultOpacity + '"; class="geonote_slider" id="geonote_opacity_slider"></div><div id="geonote_opacity_value"></div>';
+                                htmlText +='</span></div>';
+                                toolsDiv.innerHTML = htmlText;
+                                var slider = document.getElementById("geonote_opacity_slider");
+                                var opacityVal = document.getElementById("geonote_opacity_value");
+                                var opacityAttr = document.getElementById("geonote_opacity_text");
+                                opacityVal.innerHTML = slider.value;
+                                slider.oninput = function() {
+                                    opacityVal.innerHTML = this.value;
+                                    opacityAttr.value = this.value;
+                                };
+                            },
+                            'deactivate': function() {
+                                var toolsDiv = document.getElementById('geonote_panel_elem_options_create_polygon');
+                                toolsDiv.innerHTML = '';
                             }
                         }
                     }
@@ -859,13 +881,34 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                     this.redlineLayer,
                     OpenLayers.Handler.RegularPolygon,
                     {
+                        ctrl: this,
                         handlerOptions: {sides: 50},
                         iconclass:"glyphicon-white glyphicon-record",
                         text:"Cerchio",
                         title:"Inserisci cerchio",
-                        eventListeners: {'activate': function(){
+                        eventListeners: {
+                            'activate': function(){
                                 this.map.currentControl.deactivate();
                                 this.map.currentControl=this;
+                                var defaultOpacity = this.ctrl.defaultFillOpacity*100;
+                                var toolsDiv = document.getElementById('geonote_panel_elem_options_create_polygon');
+                                var htmlText = '<div><span class="geonote_options_header">Opacità</span><span class="geonote_options_content">';
+                                htmlText += '<input type="hidden" value="" class="form-control" id="geonote_opacity_text" data-geonote-attr="opacity">';
+                                htmlText += '<div><input type="range" min="1" max="100" value="' + defaultOpacity + '"; class="geonote_slider" id="geonote_opacity_slider"></div><div id="geonote_opacity_value"></div>';
+                                htmlText +='</span></div>';
+                                toolsDiv.innerHTML = htmlText;
+                                var slider = document.getElementById("geonote_opacity_slider");
+                                var opacityVal = document.getElementById("geonote_opacity_value");
+                                var opacityAttr = document.getElementById("geonote_opacity_text");
+                                opacityVal.innerHTML = slider.value;
+                                slider.oninput = function() {
+                                    opacityVal.innerHTML = this.value;
+                                    opacityAttr.value = this.value;
+                                };
+                            },
+                            'deactivate': function() {
+                                var toolsDiv = document.getElementById('geonote_panel_elem_options_create_polygon');
+                                toolsDiv.innerHTML = '';
                             }
                         }
                     }
@@ -874,7 +917,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                     this.redlineLayer,
                     OpenLayers.Handler.RegularPolygon,
                     {
-
+                        ctrl: this,
                         handlerOptions: {sides: 3},
                         iconclass:"glyphicon-white glyphicon-record",
                         text:"Poligono Regolare",
@@ -884,6 +927,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                                 var ctrl = this;
                                 this.map.currentControl.deactivate();
                                 this.map.currentControl=this;
+                                var defaultOpacity = this.ctrl.defaultFillOpacity*100;
                                 var toolsDiv = document.getElementById('geonote_panel_elem_options_create_polygon');
                                 var htmlText = '<div><span class="geonote_options_header">Numero lati</span><span class="geonote_options_content">';
                                 htmlText += '<select class="form-control" id="geonote_polygon_sides_text">'
@@ -891,12 +935,24 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                                     htmlText += '<option value="'+i+'">'+i+'</option>';
                                 }
                                 htmlText += '</select>';
+                                htmlText += '</span></div>';
+                                htmlText += '<div><span class="geonote_options_header">Opacità</span><span class="geonote_options_content">';
+                                htmlText += '<input type="hidden" value="" class="form-control" id="geonote_opacity_text" data-geonote-attr="opacity">';
+                                htmlText += '<div><input type="range" min="1" max="100" value="' + defaultOpacity + '"; class="geonote_slider" id="geonote_opacity_slider"></div><div id="geonote_opacity_value"></div>';
                                 htmlText +='</span></div>';
                                 toolsDiv.innerHTML = htmlText;
                                 var selTag = toolsDiv.getElementsByTagName('select').item(0);
                                 selTag.addEventListener("change", function(evt) {
                                     ctrl.handler.sides = evt.currentTarget.value;
                                 });
+                                var slider = document.getElementById("geonote_opacity_slider");
+                                var opacityVal = document.getElementById("geonote_opacity_value");
+                                var opacityAttr = document.getElementById("geonote_opacity_text");
+                                opacityVal.innerHTML = slider.value;
+                                slider.oninput = function() {
+                                    opacityVal.innerHTML = this.value;
+                                    opacityAttr.value = this.value;
+                                };
                             },
                             'deactivate': function() {
                                 var toolsDiv = document.getElementById('geonote_panel_elem_options_create_polygon');
@@ -1696,6 +1752,9 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
             if (!featObj.attributes.radius) {
                 featObj.attributes.radius = 0;
             }
+            if (!featObj.attributes.opacity) {
+                featObj.attributes.opacity = this.defaultFillOpacity;
+            }
             if (featObj.attributes.quote_id && featObj.geometry.CLASS_NAME == "OpenLayers.Geometry.LineString") {
                 featObj.attributes.fontsize = '12px';
                 if (!featObj.attributes.hasOwnProperty('centroid')) {
@@ -1791,6 +1850,8 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
             obj.feature.attributes.fontsize = '12px';
         if (!obj.feature.attributes.angle)
             obj.feature.attributes.angle = 0;
+        if (!obj.feature.attributes.opacity)
+            obj.feature.attributes.opacity = this.defaultFillOpacity;
         //obj.feature.attributes.resolution = this.map.getResolution();
 
         obj.feature.attributes.resolution = this.map.resolutions[clientConfig.GEONOTE_SYMBOL_RES];
@@ -1818,6 +1879,9 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
             else if (confAttr == 'radius') {
                 obj.feature.attributes[confAttr] = confNode.value;
                 obj.feature.attributes.labelyoff = parseFloat(obj.feature.attributes.labelyoff) + parseFloat(confNode.value);
+            }
+            else if (confAttr == 'opacity') {
+                obj.feature.attributes[confAttr] = confNode.value/100;
             }
             else if (confAttr == 'orientation' && confNode.value) {
                 var lastFeature = null;

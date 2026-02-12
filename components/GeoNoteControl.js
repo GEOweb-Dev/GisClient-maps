@@ -16,6 +16,7 @@ window.GCComponents["Controls"].addControl('control-redline', function(map){
         redlineColorPalette: clientConfig.GEONOTE_COLOR_PALETTE,
         defaultPointRadius: (clientConfig.GEONOTE_DEFAULTS_MAP.hasOwnProperty(GisClientMap.mapsetName) && clientConfig.GEONOTE_DEFAULTS_MAP[GisClientMap.mapsetName].hasOwnProperty('pointRadius')?clientConfig.GEONOTE_DEFAULTS_MAP[GisClientMap.mapsetName].pointRadius:clientConfig.GEONOTE_POINT_RADIUS),
         defaultStrokeWidth: (clientConfig.GEONOTE_DEFAULTS_MAP.hasOwnProperty(GisClientMap.mapsetName) && clientConfig.GEONOTE_DEFAULTS_MAP[GisClientMap.mapsetName].hasOwnProperty('strokeWidth')?clientConfig.GEONOTE_DEFAULTS_MAP[GisClientMap.mapsetName].strokeWidth:clientConfig.GEONOTE_STROKE_WIDTH),
+        defaultFillOpacity: clientConfig.GEONOTE_FILL_OPACITY,
         defaultLineType: (clientConfig.GEONOTE_DEFAULTS_MAP.hasOwnProperty(GisClientMap.mapsetName) && clientConfig.GEONOTE_DEFAULTS_MAP[GisClientMap.mapsetName].hasOwnProperty('lineType')?clientConfig.GEONOTE_DEFAULTS_MAP[GisClientMap.mapsetName].lineType:clientConfig.GEONOTE_LINE_TYPE)
     });
 });
