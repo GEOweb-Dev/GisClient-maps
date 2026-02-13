@@ -219,6 +219,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
     defaultStrokeWidth: 1,
     defaultPointRadius: 1,
     defaultFillOpacity: 0.7,
+    defaultOpacity: 0.7,
     lineTypes: {
         solid: 'continua',
         dot: 'punti',
@@ -1753,7 +1754,11 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                 featObj.attributes.radius = 0;
             }
             if (!featObj.attributes.opacity) {
-                featObj.attributes.opacity = this.defaultFillOpacity;
+                var defaultOpacity = this.defaultOpacity;
+                if (featObj.geometry.CLASS_NAME == "OpenLayers.Geometry.Polygon") {
+                    defaultOpacity = this.defaultFillOpacity;
+                }
+                featObj.attributes.opacity = defaultOpacity;
             }
             if (featObj.attributes.quote_id && featObj.geometry.CLASS_NAME == "OpenLayers.Geometry.LineString") {
                 featObj.attributes.fontsize = '12px';
@@ -1850,8 +1855,14 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
             obj.feature.attributes.fontsize = '12px';
         if (!obj.feature.attributes.angle)
             obj.feature.attributes.angle = 0;
-        if (!obj.feature.attributes.opacity)
-            obj.feature.attributes.opacity = this.defaultFillOpacity;
+        if (!obj.feature.attributes.opacity) {
+            var defaultOpacity = this.defaultOpacity;
+            if (obj.feature.geometry.CLASS_NAME == "OpenLayers.Geometry.Polygon") {
+                defaultOpacity = this.defaultFillOpacity;
+            }
+            obj.feature.attributes.opacity = defaultOpacity;
+        }
+
         //obj.feature.attributes.resolution = this.map.getResolution();
 
         obj.feature.attributes.resolution = this.map.resolutions[clientConfig.GEONOTE_SYMBOL_RES];
