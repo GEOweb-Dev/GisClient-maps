@@ -1695,6 +1695,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
         var ctrl = this;
 
         this.redlineLayer.protocol = new OpenLayers.Protocol.HTTP({
+            readWithPOST: true,
             url: this.serviceURL,
             format: new OpenLayers.Format.GeoJSON({
                 ignoreExtraDims: true
