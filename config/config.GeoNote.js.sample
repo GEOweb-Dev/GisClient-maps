@@ -13,6 +13,12 @@ clientConfig.GEONOTE_PRINT_OPTIONS = {
 clientConfig.GEONOTE_STATUS_LIST = [
     {label: 'Nuova', readonly: false, save: false}
 ];
+clientConfig.GEONOTE_TYPE_LIST = [
+    {id: 'default', label: 'Default', attributes:[]},
+];
+clientConfig.GEONOTE_TYPE_LIST_MAP = {
+
+};
 clientConfig.GEONOTE_SYMBOL_MAP = {
 
 };

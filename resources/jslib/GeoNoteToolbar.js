@@ -3,6 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
+
  OpenLayers.Control.GeoNoteModifyFeature = OpenLayers.Class(OpenLayers.Control.ModifyFeature, {
      rotateHandleStyle: null,
 
@@ -238,6 +239,10 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
     noteStatusList:[
         {label: 'Nuova', readonly: false, save: false}
     ] ,
+    noteTypeList:[
+        {id: 'default', label: 'Default', attributes:[]}
+    ],
+    noteDefaultType: 0,
     noteDefaultTitle: 'Nuova nota',
     savedState: false,
     loading: false,
@@ -1997,9 +2002,15 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                <input type="text" class="form-control" id="geonote_note_name">\
            </div>\
            <div class="geonote-popup-form-group">\
-               <label for="geonote_note_name">Stato Nota</label>\
+               <label for="geonote_note_type_list">Tipo Nota</label>\
+               <select class="form-control" id="geonote_note_type_list"></select>\
+           </div>\
+           <div class="geonote-popup-form-group">\
+               <label for="geonote_note_status_list">Stato Nota</label>\
                <select class="form-control" id="geonote_note_status_list"></select>\
            </div>\
+           <div id="geonote_note_save_data">\
+	   </div>\
        </div>\
        <div class="geonote-popup-buttons">\
            <a  id="geonote_save" class="olButton olControlItemInactive" title="Salva nota">\
@@ -2018,15 +2029,68 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                 document.getElementById("geonote_note_status_list").add(noteOpt);
             }
        }
+       for (var i = 0; i < self.ctrl.noteTypeList.length; i++){
+           var noteTypeT = self.ctrl.noteTypeList[i];
+           var noteType = document.createElement( 'option' );
+           noteType.value = i;
+           noteType.text = noteTypeT.label;
+	       noteType.setAttribute('data-geonote-type_id', noteTypeT.id);
+           if (self.ctrl.noteID && self.ctrl.noteList[self.ctrl.noteID].type == noteTypeT.id) {
+               noteType.selected = true;
+               var noteDlgDiv = document.getElementById('geonote_note_save_data');
+	           noteDlgDiv.innerHTML = '';
+               for (var j=0; j<noteTypeT.attributes.length; j++){
+                    noteDlgDiv.innerHTML += '<div class="geonote-popup-form-group">\
+                        <label for="geonote_note_attr_'+noteTypeT.attributes[j].name+'">'+noteTypeT.attributes[j].title+'</label>\
+                        <input type="text" class="form-control" id="geonote_note_attr_'+noteTypeT.attributes[j].name+'">\
+                    </div>'
+               }
+               for (var j=0; j<noteTypeT.attributes.length; j++){
+                    document.getElementById('geonote_note_attr_'+noteTypeT.attributes[j].name).value = self.ctrl.noteList[self.ctrl.noteID].attributes[noteTypeT.attributes[j].name];
+               }
+           }
+           document.getElementById("geonote_note_type_list").add(noteType);
+       }
        document.getElementById("geonote_note_name").value = self.ctrl.noteTitle;
+
+       document.getElementById("geonote_note_type_list").addEventListener("change", function (evt) {
+           var noteTypeT = self.ctrl.noteTypeList[evt.target.value];
+           var noteDlgDiv = document.getElementById('geonote_note_save_data');
+	   noteDlgDiv.innerHTML = '';
+           for (var j=0; j<noteTypeT.attributes.length; j++){
+                noteDlgDiv.innerHTML += '<div class="geonote-popup-form-group">\
+                    <label for="geonote_note_attr_'+noteTypeT.attributes[j].name+'">'+noteTypeT.attributes[j].title+'</label>\
+                    <input type="text" class="form-control" id="geonote_note_attr_'+noteTypeT.attributes[j].name+'">\
+                </div>'
+           }
+       });
        document.getElementById("geonote_save").addEventListener("click", function (evt) {
            var noteTitle = document.getElementById("geonote_note_name").value;
            var noteStatus = document.getElementById("geonote_note_status_list").value;
+
+           var noteTypeT = self.ctrl.noteTypeList[document.getElementById("geonote_note_type_list").value];
+           var noteType = noteTypeT.id;
+           var noteTypeAttrs = {};
+           for (var j=0; j<noteTypeT.attributes.length; j++){
+               var attrValue = document.getElementById('geonote_note_attr_'+noteTypeT.attributes[j].name).value;
+               var attrRegEx = noteTypeT.attributes[j].regex;
+               if (attrRegEx && attrRegEx.length > 0) {
+                   var testRE = new RegExp(attrRegEx);
+                   if (!testRE.test(attrValue)) {
+                       return alert("Valore non valido per l'attributo della nota: "+noteTypeT.attributes[j].name);
+                   }
+               }
+               // TEST Valid value
+               noteTypeAttrs[noteTypeT.attributes[j].name] = attrValue;
+           }
+
            var reqParams = self.ctrl.redlineLayer.protocol.params;
 
 
             reqParams["TITLE"] = noteTitle;
             reqParams["STATUS"] = noteStatus;
+            reqParams["TYPE"] = noteType;
+            reqParams["TYPE_ATTR"] = JSON.stringify(noteTypeAttrs);
             reqParams["REQUEST"] = 'SaveLayer';
             //self.ctrl.redlineLayer.protocol.params["SRS"] = self.ctrl.map.projection;
             if (self.ctrl.noteID)
@@ -2156,6 +2220,10 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                                 title : responseObj.layers[i].redline_title,
                                 status :  redlineStatus,
                                 readonly: redlineReadonly
+                            }
+                            if (responseObj.layers[i].note_type){
+                                this.ctrl.noteList[responseObj.layers[i].redline_id]['type'] = responseObj.layers[i].note_type;
+                                this.ctrl.noteList[responseObj.layers[i].redline_id]['attributes'] = JSON.parse(responseObj.layers[i].note_attr);
                             }
                         }
                     }
