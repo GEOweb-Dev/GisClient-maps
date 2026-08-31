@@ -98,6 +98,7 @@ OpenLayers.GisClient.streetViewViewer = OpenLayers.Class(OpenLayers.Control.Pane
     streetviewService = new google.maps.StreetViewService;
     streetview = new google.maps.StreetViewPanorama(this.div, {
       pov: {heading:0, pitch:10},
+      motionTrackingControl: false,
       map: this.map
     });
     streetview.registerPanoProvider(this.getGeoWebProvider);
