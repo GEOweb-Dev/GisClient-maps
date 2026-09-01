@@ -221,6 +221,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
     defaultPointRadius: 1,
     defaultFillOpacity: 0.7,
     defaultOpacity: 0.7,
+    defaultFontSize: 12,
     lineTypes: {
         solid: 'continua',
         dot: 'punti',
@@ -550,7 +551,7 @@ OpenLayers.GisClient.geoNoteToolbar = OpenLayers.Class(OpenLayers.Control.Panel,
                                 var htmlText = '<div><span class="geonote_options_header">Dimensione testo</span><span class="geonote_options_content">';
                                 htmlText += '<select class="form-control" id="geonote_fontsize_text" data-geonote-attr="fontsize">';
                                 for (var i=6; i<=30;i+=2) {
-                                    if (i==12) {
+                                    if (i==this.ctrl.defaultFontSize) {
                                         htmlText += '<option selected value="'+i+'px">'+i+'</option>';
                                     }
                                     else {
